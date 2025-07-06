@@ -80,7 +80,7 @@ const textStyles = {
     },
     bodySecondary: {
       fontFamily: 'YTF Grand 123',
-      fontSize: 6,
+      fontSize: 8,
       lineHeight: 1.6,
       letterSpacing: 0.0025,
     },
@@ -363,11 +363,17 @@ const LicenseInfo = ({ licensee, quotationDate, validityDate, billingAddress, bu
   businessSize?: { name: string; description: string }
 }) => {
   // License display logic
-  const displayLicense = businessSize?.name 
-    ? businessSize.name === "Individual (1×)"
-      ? "Individual License (No Commercial Use)"
-      : businessSize.name.split(" ")[0] + " License"
-    : "";
+  const businessSizeDisplayMap: Record<string, string> = {
+    'Individual (1×)': 'Individual License (No Commercial Use)',
+    'XS – Business (2×)': 'XS-Business License',
+    'S – Business (3×)': 'S-Business License',
+    'M – Business (5×)': 'M-Business License',
+    'L – Business (8×)': 'L-Business License',
+    'XL – Business (10×)': 'XL-Business License',
+  };
+  const displayLicense = businessSize?.name
+    ? businessSizeDisplayMap[businessSize.name] || (businessSize.name.split(' ')[0] + ' License')
+    : '';
 
   return (
     <View style={{ flexDirection: 'row', width: 595, height: 210, margin: '0 auto' }}>
