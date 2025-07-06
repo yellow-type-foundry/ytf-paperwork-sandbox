@@ -1502,53 +1502,54 @@ export default function QuotationPage() {
           if (styleMatch && styleMatch[1]) {
             // Try to match the extracted style to available styles (fuzzy)
             const stylePhrase = styleMatch[1].trim();
-            
             if (typeof window !== 'undefined') {
               console.log('AI Typeface Extraction: Extracted style phrase:', stylePhrase);
             }
+            // --- IMPROVED LOGIC: Prioritize exact matches, then longest substring matches ---
+            // Normalize style phrase and variants for comparison
+            const normalizedStylePhrase = stylePhrase.toLowerCase().replace(/\s+/g, ' ').trim();
             
             // First, try exact match (case-insensitive)
             const exactMatch = typeface.variants.find(v => 
-              v.toLowerCase() === stylePhrase.toLowerCase()
+              v.toLowerCase().replace(/\s+/g, ' ').trim() === normalizedStylePhrase
             );
+            
             if (exactMatch) {
               mentionedStyles.push(exactMatch);
               if (typeof window !== 'undefined') {
                 console.log('AI Typeface Extraction: Exact match found:', exactMatch);
               }
             } else {
-              // Try partial match (the extracted phrase contains the variant)
-              const partialMatch = typeface.variants.find(v => 
-                stylePhrase.toLowerCase().includes(v.toLowerCase()) ||
-                v.toLowerCase().includes(stylePhrase.toLowerCase())
-              );
-              if (partialMatch) {
-                mentionedStyles.push(partialMatch);
+              // Find all variants that are substrings of the style phrase, or vice versa
+              const matchingVariants = typeface.variants.filter(v => {
+                const normV = v.toLowerCase().replace(/\s+/g, ' ').trim();
+                return (
+                  normalizedStylePhrase.includes(normV) ||
+                  normV.includes(normalizedStylePhrase)
+                );
+              });
+              
+              // Pick the longest matching variant name (most specific)
+              let bestMatch = null;
+              if (matchingVariants.length > 0) {
+                bestMatch = matchingVariants.reduce((a, b) => (b.length > a.length ? b : a));
+                mentionedStyles.push(bestMatch);
                 if (typeof window !== 'undefined') {
-                  console.log('AI Typeface Extraction: Partial match found:', partialMatch);
+                  console.log('AI Typeface Extraction: Longest substring match found:', bestMatch);
                 }
-              } else {
-                // Try splitting by space and matching each word
+                            } else {
+                // Try splitting by space and matching each word (legacy fallback)
                 const words = stylePhrase.split(' ');
                 const matchedVariants = new Set<string>();
-                
-                // For each word, find variants that contain it
                 words.forEach(word => {
-                  const matchingVariants = typeface.variants.filter(v => 
-                    v.toLowerCase().includes(word.toLowerCase())
-                  );
-                  matchingVariants.forEach(v => matchedVariants.add(v));
+                  const matching = typeface.variants.filter(v => v.toLowerCase().includes(word.toLowerCase()));
+                  matching.forEach(v => matchedVariants.add(v));
                 });
-                
-                // If we found variants, use the one that best matches the original phrase
                 if (matchedVariants.size > 0) {
-                  const bestMatch = Array.from(matchedVariants).find(v => 
-                    v.toLowerCase().includes(stylePhrase.toLowerCase()) ||
-                    stylePhrase.toLowerCase().includes(v.toLowerCase())
-                  ) || Array.from(matchedVariants)[0];
-                  mentionedStyles.push(bestMatch);
+                  const bestWordMatch = Array.from(matchedVariants).reduce((a, b) => (b.length > a.length ? b : a));
+                  mentionedStyles.push(bestWordMatch);
                   if (typeof window !== 'undefined') {
-                    console.log('AI Typeface Extraction: Word-based match found:', bestMatch);
+                    console.log('AI Typeface Extraction: Word-based match found:', bestWordMatch);
                   }
                 } else {
                   // Fallback: add the whole phrase as a style for debugging
