@@ -450,6 +450,7 @@ export function calculateDiscount(
   items: Array<{ licenseType: string; amount: number; typefaceFamily: string; typefaceVariant: string }>,
   businessSize: string
 ): { percentage: number; amount: number; subtotal: number } {
+  // Calculate subtotal as the sum of all license prices (Desktop, Web, Packaging, App, etc.)
   const subtotal = items.reduce((sum, item) => sum + (item.amount || 0), 0)
   
   // No discount for Individual licenses
@@ -461,7 +462,7 @@ export function calculateDiscount(
     }
   }
   
-  // Count unique styles and license types
+  // Count unique styles and license types (across all types)
   const uniqueStyles = new Set(items.map(item => `${item.typefaceFamily} ${item.typefaceVariant}`)).size
   const uniqueLicenseTypes = new Set(items.map(item => item.licenseType)).size
   
@@ -494,7 +495,7 @@ export function calculateDiscount(
   const cap = discountCaps[businessSize as keyof typeof discountCaps] || 0
   totalDiscountPercent = Math.min(totalDiscountPercent, cap)
   
-  // Calculate discount amount and round to nearest dollar
+  // Apply the discount percentage to the full subtotal (all license types)
   const discountAmount = Math.round((subtotal * totalDiscountPercent) / 100)
   
   return {

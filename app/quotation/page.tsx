@@ -38,6 +38,7 @@ const PDFPreview = dynamic(() => import("@/components/pdf-preview"), { ssr: fals
 
 // Add type definitions
 interface FormItem {
+  id: string
   typefaceFamily: string
   typefaceVariant: string
   typeface: string
@@ -149,6 +150,7 @@ export default function QuotationPage() {
     businessSize: "individual", // Default to individual
     items: [
       {
+        id: crypto.randomUUID(),
         typefaceFamily: "YTF Gióng", // Set default typeface family
         typefaceVariant: "Roman", // Set default variant
         typeface: "YTF Gióng Roman", // Set default full typeface name
@@ -180,6 +182,7 @@ export default function QuotationPage() {
 
   // Track touched fields for validation
   const defaultTouchedItem = {
+    id: false,
     typefaceFamily: false,
     typefaceVariant: false,
     typeface: false,
@@ -190,6 +193,7 @@ export default function QuotationPage() {
     usage: false,
   }
   const defaultErrorItem = {
+    id: "",
     typefaceFamily: "",
     typefaceVariant: "",
     typeface: "",
@@ -213,7 +217,8 @@ export default function QuotationPage() {
   })
 
   // Track available variants for each item
-  const [availableVariants, setAvailableVariants] = useState([["Roman", "Italic"]]) // Set default variants for YTF Gióng
+  // Remove availableVariants state and compute variants on the fly
+  // Update all mapping and onChange logic to use item.id instead of index
 
   // Enable client-side rendering detection
   useEffect(() => {
@@ -266,21 +271,6 @@ export default function QuotationPage() {
       return { ...prev, items: updatedItems, subtotal, discount: discountAmount, total };
     });
   }, []);
-
-  // Keep availableVariants in sync with formData.items
-  useEffect(() => {
-    if (formData.items && formData.items.length > 0) {
-      const newAvailableVariants = formData.items.map(item => {
-        const typeface = ytfTypefaces.find(tf => tf.family === item.typefaceFamily);
-        return typeface ? typeface.variants : ["Roman", "Italic"];
-      });
-      
-      // Only update if the arrays are different
-      if (JSON.stringify(newAvailableVariants) !== JSON.stringify(availableVariants)) {
-        setAvailableVariants(newAvailableVariants);
-      }
-    }
-  }, [formData.items, ytfTypefaces]);
 
   // Update the useEffect for business size change
   useEffect(() => {
@@ -396,143 +386,133 @@ export default function QuotationPage() {
   }
 
   // Update handleItemChange to remove discount parameters
-  const handleItemChange = (index: number, field: keyof FormItem, value: string | number | string[]) => {
-    const newItems = [...formData.items]
-    const newAvailableVariants = [...availableVariants]
-    const newTouchedItems = [...touchedFields.items]
-    const newItemErrors = [...errors.items]
-
-    if (field === "typefaceFamily") {
-      const selectedTypeface = getTypefaceByFamily(value as string)
-      if (selectedTypeface) {
-        newAvailableVariants[index] = selectedTypeface.variants
-        if (selectedTypeface.variants.length > 0) {
-          // Calculate amount using the pricing logic while preserving licenseType and usage
-          const amount = calculateItemPrice(
-            value as string,
-            formData.businessSize,
-            newItems[index].licenseType,
-            newItems[index].usage
-          )
-          
-          newItems[index] = {
-            ...newItems[index],
+  const handleItemChange = (itemId: string, field: keyof FormItem, value: string | number | string[]) => {
+    setFormData((prev) => {
+      const newItems = [...prev.items]
+      const itemIndex = newItems.findIndex(item => item.id === itemId)
+      
+      if (itemIndex === -1) return prev // Item not found
+      
+      const currentItem = newItems[itemIndex]
+      
+      if (field === "typefaceFamily") {
+        const selectedTypeface = getTypefaceByFamily(value as string)
+        if (selectedTypeface) {
+          newItems[itemIndex] = {
+            ...currentItem,
+            typefaceFamily: value as string,
             typefaceVariant: selectedTypeface.variants[0],
             languageCut: `Latin, ${selectedTypeface.variants[0]}`,
             basePrice: selectedTypeface.basePrice,
             typeface: `${value} ${selectedTypeface.variants[0]}`,
-            amount,
+            amount: calculateItemPrice(
+              value as string,
+              prev.businessSize,
+              currentItem.licenseType,
+              currentItem.usage
+            )
           }
         }
-      }
-    }
-
-    if (field === "typefaceVariant") {
-      newItems[index] = {
-        ...newItems[index],
-        languageCut: `Latin, ${value}`,
-        typeface: `${newItems[index].typefaceFamily} ${value}`,
-      }
-    }
-
-    // Handle licenseType changes
-    if (field === "licenseType") {
-      const newLicenseType = value as string
-      
-      // Update the license type
-      newItems[index] = {
-        ...newItems[index],
-        licenseType: newLicenseType,
-      }
-      
-      // If this is a business-size-based license, auto-update usage
-      if (['desktop', 'web', 'logo'].includes(newLicenseType)) {
-        const newUsage = getBusinessSizeUsage(formData.businessSize)
-        newItems[index] = {
-          ...newItems[index],
-          usage: newUsage,
+      } else if (field === "typefaceVariant") {
+        newItems[itemIndex] = {
+          ...currentItem,
+          typefaceVariant: value as string,
+          languageCut: `Latin, ${value}`,
+          typeface: `${currentItem.typefaceFamily} ${value}`,
+        }
+      } else if (field === "licenseType") {
+        const newLicenseType = value as string
+        
+        // Update the license type
+        let updatedItem = {
+          ...currentItem,
+          licenseType: newLicenseType,
+        }
+        
+        // If this is a business-size-based license, auto-update usage
+        if (['desktop', 'web', 'logo'].includes(newLicenseType)) {
+          const newUsage = getBusinessSizeUsage(prev.businessSize)
+          updatedItem = {
+            ...updatedItem,
+            usage: newUsage,
+          }
+        } else {
+          // For manual selection licenses, clear usage
+          updatedItem = {
+            ...updatedItem,
+            usage: "",
+          }
+        }
+        
+        // Recalculate amount based on new licenseType and usage
+        const amount = calculateItemPrice(
+          updatedItem.typefaceFamily,
+          prev.businessSize,
+          updatedItem.licenseType,
+          updatedItem.usage
+        )
+        
+        updatedItem.amount = amount
+        newItems[itemIndex] = updatedItem
+      } else if (field === "usage") {
+        newItems[itemIndex] = {
+          ...currentItem,
+          usage: value as string,
+        }
+        
+        // Recalculate amount based on new usage
+        const amount = calculateItemPrice(
+          currentItem.typefaceFamily,
+          prev.businessSize,
+          currentItem.licenseType,
+          value as string
+        )
+        
+        newItems[itemIndex].amount = amount
+      } else if (field === "amount") {
+        newItems[itemIndex] = {
+          ...currentItem,
+          amount: Number(value) || 0,
         }
       } else {
-        // For manual selection licenses, clear usage
-        newItems[index] = {
-          ...newItems[index],
-          usage: "",
+        // Update other field values
+        newItems[itemIndex] = {
+          ...currentItem,
+          [field]: value,
         }
       }
+
+      // Calculate subtotal and total
+      const subtotal = newItems.reduce((sum, item) => sum + (Number.parseFloat(String(item.amount)) || 0), 0)
       
-      // Recalculate amount based on new licenseType and usage
-      const amount = calculateItemPrice(
-        newItems[index].typefaceFamily,
-        formData.businessSize,
-        newItems[index].licenseType,
-        newItems[index].usage
-      )
-      
-      newItems[index].amount = amount
-    }
-    
-    // Handle usage changes
-    if (field === "usage") {
-      newItems[index] = {
-        ...newItems[index],
-        usage: value as string,
+      // Calculate discount
+      const { amount: discountAmount } = calculateDiscount(newItems, prev.businessSize);
+      const total = subtotal - discountAmount
+
+      return {
+        ...prev,
+        items: newItems,
+        subtotal,
+        discount: discountAmount,
+        total,
       }
-      
-      // Recalculate amount based on new usage
-      const amount = calculateItemPrice(
-        newItems[index].typefaceFamily,
-        formData.businessSize,
-        newItems[index].licenseType,
-        newItems[index].usage
-      )
-      
-      newItems[index].amount = amount
-    }
+    })
 
-    // Handle amount change directly
-    if (field === "amount") {
-      newItems[index] = {
-        ...newItems[index],
-        amount: Number(value) || 0,
-      }
-    } else if (field !== "licenseType" && field !== "usage" && field !== "typefaceFamily" && field !== "typefaceVariant") {
-      // Update other field values (excluding fields handled above)
-      newItems[index] = {
-        ...newItems[index],
-        [field]: value,
-      }
-    }
+    // Update touched and error states
+    const itemIndex = formData.items.findIndex(item => item.id === itemId)
+    if (itemIndex === -1) return
 
-    // If basePrice changed, update amount
-    if (field === "basePrice") {
-      newItems[index].amount = Number(value) || 0;
-    }
-
-    // Calculate subtotal and total
-    const subtotal = newItems.reduce((sum, item) => sum + (Number.parseFloat(String(item.amount)) || 0), 0)
-    
-    // Calculate discount
-    const { amount: discountAmount } = calculateDiscount(newItems, formData.businessSize);
-    const total = subtotal - discountAmount
-
-    setFormData((prev) => ({
-      ...prev,
-      items: newItems,
-      subtotal,
-      discount: discountAmount,
-      total,
-    }))
-
-    setAvailableVariants(newAvailableVariants)
+    const newTouchedItems = [...touchedFields.items]
+    const newItemErrors = [...errors.items]
 
     // Validate the item field if it's been touched
     if (
-      touchedFields.items[index] &&
+      touchedFields.items[itemIndex] &&
       (field === "typefaceFamily" || field === "typefaceVariant")
     ) {
-      newItemErrors[index] = {
-        ...newItemErrors[index],
-        [field]: validateItemField(index, field, value as string | string[]),
+      newItemErrors[itemIndex] = {
+        ...newItemErrors[itemIndex],
+        [field]: validateItemField(itemIndex, field, value as string | string[]),
       }
 
       setErrors((prev) => ({
@@ -543,15 +523,18 @@ export default function QuotationPage() {
   }
 
   // Update handleSelectChange with proper types
-  const handleSelectChange = (index: number, field: keyof FormItem, value: string | string[]) => {
-    handleItemChange(index, field, value)
+  const handleSelectChange = (itemId: string, field: keyof FormItem, value: string | string[]) => {
+    handleItemChange(itemId, field, value)
   }
 
   // Update handleItemBlur to use proper type assertions
-  const handleItemBlur = (index: number, field: keyof FormItem, value: string | string[] | number) => {
+  const handleItemBlur = (itemId: string, field: keyof FormItem, value: string | string[] | number) => {
+    const itemIndex = formData.items.findIndex(item => item.id === itemId)
+    if (itemIndex === -1) return
+    
     const newTouchedItems = [...touchedFields.items]
-    if (!newTouchedItems[index]) {
-      newTouchedItems[index] = {
+    if (!newTouchedItems[itemIndex]) {
+      newTouchedItems[itemIndex] = {
         typefaceFamily: false,
         typefaceVariant: false,
         typeface: false,
@@ -560,7 +543,7 @@ export default function QuotationPage() {
         amount: false,
       } as ItemTouchedFields
     }
-    newTouchedItems[index][field] = true
+    newTouchedItems[itemIndex][field] = true
 
     setTouchedFields((prev) => ({
       ...prev,
@@ -568,8 +551,8 @@ export default function QuotationPage() {
     }))
 
     const newItemErrors = [...errors.items]
-    if (!newItemErrors[index]) {
-      newItemErrors[index] = {
+    if (!newItemErrors[itemIndex]) {
+      newItemErrors[itemIndex] = {
         typefaceFamily: "",
         typefaceVariant: "",
         typeface: "",
@@ -578,7 +561,7 @@ export default function QuotationPage() {
         amount: "",
       } as ItemErrors
     }
-    newItemErrors[index][field] = validateItemField(index, field, value as string | string[])
+    newItemErrors[itemIndex][field] = validateItemField(itemIndex, field, value as string | string[])
 
     setErrors((prev) => ({
       ...prev,
@@ -599,6 +582,7 @@ export default function QuotationPage() {
     const newItems = [
       ...formData.items,
       {
+        id: crypto.randomUUID(),
         typefaceFamily: "YTF Gióng",
         typefaceVariant: defaultVariant,
         typeface: `YTF Gióng ${defaultVariant}`,
@@ -623,26 +607,39 @@ export default function QuotationPage() {
       subtotal,
       discount: discountAmount,
       total,
-    }));
-    setAvailableVariants((prev) => [...prev, defaultTypeface?.variants || ["Roman", "Italic"]]);
+    }))
+
+    // Add default touched and error states for the new item
+    const newTouchedItems = [
+      ...touchedFields.items,
+      { ...defaultTouchedItem }
+    ]
+    const newItemErrors = [
+      ...errors.items,
+      { ...defaultErrorItem }
+    ]
+
     setTouchedFields((prev) => ({
       ...prev,
-      items: [...prev.items, { ...defaultTouchedItem }],
-    }));
+      items: newTouchedItems,
+    }))
+
     setErrors((prev) => ({
       ...prev,
-      items: [...prev.items, { ...defaultErrorItem }],
-    }));
+      items: newItemErrors,
+    }))
   }
 
-  // Update removeItem with proper types
-  const removeItem = (index: number) => {
+  const removeItem = (itemId: string) => {
     if (formData.items.length === 1) return
 
-    const newItems = formData.items.filter((_, i) => i !== index)
-    const newAvailableVariants = availableVariants.filter((_, i) => i !== index)
-    const newTouchedItems = touchedFields.items.filter((_, i) => i !== index)
-    const newItemErrors = errors.items.filter((_, i) => i !== index)
+    const newItems = formData.items.filter(item => item.id !== itemId)
+    const itemIndex = formData.items.findIndex(item => item.id === itemId)
+    
+    if (itemIndex === -1) return
+    
+    const newTouchedItems = touchedFields.items.filter((_, i) => i !== itemIndex)
+    const newItemErrors = errors.items.filter((_, i) => i !== itemIndex)
 
     // Recalculate totals
     const subtotal = newItems.reduce((sum, item) => sum + (Number.parseFloat(String(item.amount)) || 0), 0)
@@ -658,8 +655,6 @@ export default function QuotationPage() {
       discount: discountAmount,
       total,
     }))
-
-    setAvailableVariants(newAvailableVariants)
 
     setTouchedFields((prev) => ({
       ...prev,
@@ -879,6 +874,7 @@ export default function QuotationPage() {
               ...currentItems,
               ...additionalVariants.map(variant => ({
                 ...item,
+                id: crypto.randomUUID(),
                 typefaceVariant: variant,
                 typeface: `${item.typefaceFamily} ${variant}`,
                 languageCut: getLanguageCutForVariant(variant),
@@ -952,6 +948,7 @@ export default function QuotationPage() {
             const newItems = [
               ...(currentItems || []),
               {
+                id: crypto.randomUUID(),
                 typefaceFamily: typeface.family,
                 typefaceVariant: typeface.variants[0] || 'Roman',
                 typeface: `${typeface.family} ${typeface.variants[0] || 'Roman'}`,
@@ -999,6 +996,7 @@ export default function QuotationPage() {
           const style = typeface?.variants.includes(tf.style) ? tf.style : typeface?.variants[0] || 'Roman';
           
           return {
+            id: crypto.randomUUID(),
             typefaceFamily: tf.family,
             typefaceVariant: style,
             typeface: `${tf.family} ${style}`,
@@ -1036,13 +1034,7 @@ export default function QuotationPage() {
         }
         
         // Update availableVariants
-        if (items.length > 0) {
-          const newAvailableVariants = items.map(item => {
-            const typeface = ytfTypefaces.find(tf => tf.family === item.typefaceFamily);
-            return typeface ? typeface.variants : ["Roman", "Italic"];
-          });
-          setAvailableVariants(newAvailableVariants);
-        }
+        // Items are already properly formatted with variants
 
         // Log AI pricing information if available
         if (aiResult.pricing) {
@@ -1068,11 +1060,7 @@ export default function QuotationPage() {
           const bundleSuggestions = generateBundleSuggestions(parsed.items, parsed.businessSize);
           setAiBundleSuggestions(bundleSuggestions);
           
-          const newAvailableVariants = parsed.items.map(item => {
-            const typeface = ytfTypefaces.find(tf => tf.family === item.typefaceFamily);
-            return typeface ? typeface.variants : ["Roman", "Italic"];
-          });
-          setAvailableVariants(newAvailableVariants);
+          // Parsed items are already properly formatted
         }
       }
     } catch (error) {
@@ -1250,16 +1238,16 @@ export default function QuotationPage() {
     const mentionedTypefaces = new Set<string>();
     const needsConfirmation: string[] = [];
 
-    // Extract typeface families and their mentioned styles
+    // Extract typeface families and their mentioned styles (EXACT MATCH ONLY)
     if (ytfTypefaces && Array.isArray(ytfTypefaces)) {
       ytfTypefaces.forEach(typeface => {
         const familyName = typeface.family.toLowerCase();
-        
-        // Check if this typeface family is mentioned
-        if (lowerInput.includes(familyName)) {
+        // Only match exact family name (not substring)
+        const familyRegex = new RegExp(`\\b${familyName.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'i');
+        if (familyRegex.test(lowerInput)) {
           const availableStyles = typeface.variants;
           const mentionedStyles: string[] = [];
-          
+
           // Look for specific style mentions in the input
           if (availableStyles && Array.isArray(availableStyles)) {
             availableStyles.forEach(style => {
@@ -1272,17 +1260,15 @@ export default function QuotationPage() {
             // If no specific styles mentioned, look for general style terms
             if (mentionedStyles.length === 0) {
               const generalStyleTerms = ['italic', 'bold', 'light', 'thin', 'regular', 'normal', 'medium'];
-              if (generalStyleTerms && Array.isArray(generalStyleTerms)) {
-                generalStyleTerms.forEach(term => {
-                  if (lowerInput.includes(term)) {
-                    const match = findBestStyleMatch(term, availableStyles);
-                    if (match.confidence !== 'exact') {
-                      needsConfirmation.push(`${typeface.family} ${match.style} (interpreted from "${term}")`);
-                    }
-                    mentionedStyles.push(match.style);
+              generalStyleTerms.forEach(term => {
+                if (lowerInput.includes(term)) {
+                  const match = findBestStyleMatch(term, availableStyles);
+                  if (match.confidence !== 'exact') {
+                    needsConfirmation.push(`${typeface.family} ${match.style} (interpreted from "${term}")`);
                   }
-                });
-              }
+                  mentionedStyles.push(match.style);
+                }
+              });
             }
 
             // If still no styles found, default to first available style
@@ -1290,21 +1276,23 @@ export default function QuotationPage() {
               mentionedStyles.push(availableStyles[0]);
             }
 
-            // Add each mentioned style as a separate item
+            // Add each mentioned style as a separate item (but don't add unrelated families)
             if (mentionedStyles && Array.isArray(mentionedStyles)) {
               mentionedStyles.forEach(style => {
                 const itemKey = `${typeface.family}-${style}`;
                 if (!mentionedTypefaces.has(itemKey)) {
                   mentionedTypefaces.add(itemKey);
+                  // We'll add license types later
                   items.push({
+                    id: crypto.randomUUID(),
                     typefaceFamily: typeface.family,
                     typefaceVariant: style,
                     typeface: `${typeface.family} ${style}`,
                     languageCut: getLanguageCutForVariant(style),
-                    basePrice: calculateItemPrice(typeface.family, parsedBusinessSize, 'desktop', 'non-commercial'),
-                    amount: calculateItemPrice(typeface.family, parsedBusinessSize, 'desktop', 'non-commercial'),
-                    licenseType: 'desktop',
-                    usage: 'non-commercial'
+                    basePrice: 0, // will be set below
+                    amount: 0, // will be set below
+                    licenseType: '', // will be set below
+                    usage: '' // will be set below
                   });
                 }
               });
@@ -1349,15 +1337,12 @@ export default function QuotationPage() {
 
     // --- 3. License Types Parsing ---
     const licenseTypes = new Set<string>();
-    
-    // Always include Desktop license for any use
-    licenseTypes.add('desktop');
-    
-    // Parse usage context for additional licenses
+    licenseTypes.add('desktop'); // Always include Desktop
     if (lowerInput.includes('website') || lowerInput.includes('web')) {
       licenseTypes.add('web');
     }
-    if (lowerInput.includes('app') || lowerInput.includes('software') || lowerInput.includes('mobile')) {
+    // Only add 'app' if input explicitly mentions app, software product, or mobile application
+    if (/(\bapp\b|\bmobile app\b|\bmobile application\b|\bsoftware product\b|\bsoftware application\b)/.test(lowerInput)) {
       licenseTypes.add('app');
     }
     if (lowerInput.includes('logo') || lowerInput.includes('brand identity') || lowerInput.includes('logotype')) {
@@ -1376,48 +1361,56 @@ export default function QuotationPage() {
       licenseTypes.add('publishing');
     }
 
-    // Apply license types to all items
-    if (items && Array.isArray(items)) {
-      items.forEach(item => {
-        item.licenseType = Array.from(licenseTypes)[0]; // Use first license type for now
-      });
+    // --- 4. Usage Tiers Parsing ---
+    let parsedUsage = 'non-commercial';
+    if (parsedBusinessSize !== 'individual') {
+      if (lowerInput.includes('under 5000') || lowerInput.includes('small run')) {
+        parsedUsage = 'under-5k';
+      } else if (lowerInput.includes('under 50000') || lowerInput.includes('medium run')) {
+        parsedUsage = 'under-50k';
+      } else if (lowerInput.includes('under 500000') || lowerInput.includes('large run')) {
+        parsedUsage = 'under-500k';
+      } else {
+        parsedUsage = 'under-5k';
+      }
     }
 
-         // --- 4. Usage Tiers Parsing ---
-     let parsedUsage = 'non-commercial';
-     
-     if (parsedBusinessSize !== 'individual') {
-       // Parse usage context for commercial tiers
-       if (lowerInput.includes('under 5000') || lowerInput.includes('small run')) {
-         parsedUsage = 'under-5k';
-       } else if (lowerInput.includes('under 50000') || lowerInput.includes('medium run')) {
-         parsedUsage = 'under-50k';
-       } else if (lowerInput.includes('under 500000') || lowerInput.includes('large run')) {
-         parsedUsage = 'under-500k';
-       } else {
-         // Default to smallest commercial tier
-         parsedUsage = 'under-5k';
-       }
-     }
-
-     // Apply usage to all items
-     if (items && Array.isArray(items)) {
-       items.forEach(item => {
-         item.usage = parsedUsage;
-       });
-     }
+    // Now, for each item (style), create an item for every license type
+    const expandedItems: FormItem[] = [];
+    items.forEach(baseItem => {
+      Array.from(licenseTypes).forEach(licenseType => {
+        // Use correct usage for each license type
+        let usage = parsedUsage;
+        if (['desktop', 'web', 'logo'].includes(licenseType)) {
+          usage = getBusinessSizeUsage(parsedBusinessSize);
+        }
+        const amount = calculateItemPrice(
+          baseItem.typefaceFamily,
+          parsedBusinessSize,
+          licenseType,
+          usage
+        );
+        expandedItems.push({
+          ...baseItem,
+          licenseType,
+          usage,
+          basePrice: amount,
+          amount
+        });
+      });
+    });
 
     // Add confirmation suggestions if needed
     if (needsConfirmation.length > 0) {
       suggestions.push(`Please confirm these style selections: ${needsConfirmation.join(', ')}`);
     }
 
-         return {
-       items,
-       businessSize: parsedBusinessSize,
-       clientInfo,
-       suggestions
-     };
+    return {
+      items: expandedItems,
+      businessSize: parsedBusinessSize,
+      clientInfo,
+      suggestions
+    };
   };
 
   return (
@@ -1844,14 +1837,7 @@ export default function QuotationPage() {
                                       items: bundle.items || prev.items
                                     }));
                                     
-                                    // Update availableVariants for the bundle items
-                                    if (bundle.items && bundle.items.length > 0) {
-                                      const newAvailableVariants = bundle.items.map(item => {
-                                        const typeface = ytfTypefaces.find(tf => tf.family === item.typefaceFamily);
-                                        return typeface ? typeface.variants : ["Roman", "Italic"];
-                                      });
-                                      setAvailableVariants(newAvailableVariants);
-                                    }
+                                    // Bundle items are already properly formatted
                                     
                                     setAiBundleSuggestions([]);
                                   }}
@@ -1877,16 +1863,15 @@ export default function QuotationPage() {
                       <div className="flex flex-col gap-1">
                         {formData.items && formData.items.map((item, index) => (
                           <TypefaceItem
-                            key={index}
+                            key={item.id}
                             index={index}
                             item={item}
-                            availableVariants={availableVariants[index] || []}
                             ytfTypefaces={ytfTypefaces}
                             businessSize={formData.businessSize}
                             errors={errors.items[index]}
                             touched={touchedFields.items[index]}
-                            onRemove={() => removeItem(index)}
-                            onSelectChange={(field, value) => handleSelectChange(index, field as keyof FormItem, value)}
+                            onRemove={() => removeItem(item.id)}
+                            onSelectChange={(field, value) => handleSelectChange(item.id, field as keyof FormItem, value)}
                             onBlur={(field, value: any) => {
                               let stringValue: string;
                               if (Array.isArray(value)) {
@@ -1896,7 +1881,7 @@ export default function QuotationPage() {
                               } else {
                                 stringValue = value as string;
                               }
-                              handleItemBlur(index, field as keyof FormItem, stringValue);
+                              handleItemBlur(item.id, field as keyof FormItem, stringValue);
                             }}
                             canRemove={formData.items ? formData.items.length > 1 : false}
                           />

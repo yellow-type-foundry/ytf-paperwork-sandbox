@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Trash2 } from "lucide-react"
@@ -14,7 +14,6 @@ interface TypefaceItemProps {
     licenseType: string
     usage: string
   }
-  availableVariants: string[]
   ytfTypefaces: typeof ytfTypefaces
   businessSize: string
   errors: {
@@ -38,7 +37,6 @@ interface TypefaceItemProps {
 export const TypefaceItem: React.FC<TypefaceItemProps> = ({
   index,
   item,
-  availableVariants,
   ytfTypefaces,
   businessSize,
   errors,
@@ -48,26 +46,50 @@ export const TypefaceItem: React.FC<TypefaceItemProps> = ({
   onBlur,
   canRemove,
 }) => {
-  // Get available license types based on business size
-  const availableLicenseTypes = getAvailableLicenseTypes(businessSize)
+  // Memoize available license types to prevent unnecessary re-renders
+  const availableLicenseTypes = useMemo(() => 
+    getAvailableLicenseTypes(businessSize), 
+    [businessSize]
+  )
   
   // Check if current license type is still valid for the current business size
-  const isCurrentLicenseTypeValid = availableLicenseTypes.some(lt => lt.id === item.licenseType)
-  
-  // If current license type is not valid, we need to handle this in the parent component
-  // For now, we'll show all available options and let the parent handle validation
-  const displayLicenseTypes = availableLicenseTypes
+  const isCurrentLicenseTypeValid = useMemo(() => 
+    availableLicenseTypes.some(lt => lt.id === item.licenseType),
+    [availableLicenseTypes, item.licenseType]
+  )
   
   // Get usage options for the selected license type
-  const usageOptions = getUsageOptionsForLicenseType(item.licenseType)
+  const usageOptions = useMemo(() => 
+    getUsageOptionsForLicenseType(item.licenseType),
+    [item.licenseType]
+  )
   
   // Check if usage should be auto-filled from business size
-  const isUsageAutoFilled = ['desktop', 'web', 'logo'].includes(item.licenseType)
-  
+  const isUsageAutoFilled = useMemo(() => 
+    ['desktop', 'web', 'logo'].includes(item.licenseType),
+    [item.licenseType]
+  )
+
+  // Memoize available variants for the selected typeface family
+  const availableVariants = useMemo(() => {
+    const selectedTypeface = ytfTypefaces.find(tf => tf.family === item.typefaceFamily)
+    return selectedTypeface?.variants || []
+  }, [ytfTypefaces, item.typefaceFamily])
+
   // Handle license type change
   const handleLicenseTypeChange = (value: string) => {
-    // Simply update the license type - let the parent handle usage updates
     onSelectChange("licenseType", value)
+  }
+
+  // Handle typeface family change with proper validation
+  const handleTypefaceFamilyChange = (value: string) => {
+    const selectedTypeface = ytfTypefaces.find(tf => tf.family === value)
+    if (selectedTypeface) {
+      // First update the typeface family
+      onSelectChange("typefaceFamily", value)
+      // Then update the variant to the first available variant
+      onSelectChange("typefaceVariant", selectedTypeface.variants[0])
+    }
   }
 
   return (
@@ -92,8 +114,8 @@ export const TypefaceItem: React.FC<TypefaceItemProps> = ({
             TYPEFACE <span className="text-destructive">*</span>
           </label>
           <Select
-            value={item.typefaceFamily}
-            onValueChange={(val) => onSelectChange("typefaceFamily", val)}
+            value={item.typefaceFamily || ""}
+            onValueChange={handleTypefaceFamilyChange}
             name={`item-${index}-family`}
           >
             <SelectTrigger id={`item-${index}-family`} className="ytf-form-input flex-1 w-full bg-transparent border-none !border-b-0 outline-none placeholder:ytf-form-input" style={{ fontSize: '14px' }}>
@@ -113,15 +135,21 @@ export const TypefaceItem: React.FC<TypefaceItemProps> = ({
             STYLE <span className="text-destructive">*</span>
           </label>
           <Select
-            value={item.typefaceVariant}
+            value={item.typefaceVariant || ""}
             onValueChange={(val) => onSelectChange("typefaceVariant", val)}
             name={`item-${index}-variant`}
+            disabled={!item.typefaceFamily}
           >
-            <SelectTrigger id={`item-${index}-variant`} className="ytf-form-input flex-1 w-full bg-transparent border-none !border-b-0 outline-none placeholder:ytf-form-input" style={{ fontSize: '14px' }}>
-              <SelectValue placeholder="Select style" style={{ fontSize: '14px' }} />
+            <SelectTrigger 
+              id={`item-${index}-variant`} 
+              className="ytf-form-input flex-1 w-full bg-transparent border-none !border-b-0 outline-none placeholder:ytf-form-input" 
+              style={{ fontSize: '14px' }}
+              disabled={!item.typefaceFamily}
+            >
+              <SelectValue placeholder={item.typefaceFamily ? "Select style" : "Select typeface first"} style={{ fontSize: '14px' }} />
             </SelectTrigger>
             <SelectContent>
-              {availableVariants && availableVariants.map((variant) => (
+              {availableVariants.map((variant) => (
                 <SelectItem key={variant} value={variant}>
                   {variant}
                 </SelectItem>
@@ -147,7 +175,7 @@ export const TypefaceItem: React.FC<TypefaceItemProps> = ({
               <SelectValue placeholder={isCurrentLicenseTypeValid ? undefined : "Select license type"} style={{ fontSize: '14px' }} />
             </SelectTrigger>
             <SelectContent>
-              {displayLicenseTypes.map((licenseType) => (
+              {availableLicenseTypes.map((licenseType) => (
                 <SelectItem key={licenseType.id} value={licenseType.id}>
                   {licenseType.name}
                 </SelectItem>
@@ -160,7 +188,7 @@ export const TypefaceItem: React.FC<TypefaceItemProps> = ({
             USAGE <span className="text-destructive">*</span>
           </label>
           <Select
-            value={item.usage}
+            value={item.usage || ""}
             onValueChange={(val) => onSelectChange("usage", val)}
             name={`item-${index}-usage`}
             disabled={isUsageAutoFilled}
