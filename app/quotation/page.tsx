@@ -1200,7 +1200,6 @@ export default function QuotationPage() {
     const lowerInput = input.toLowerCase();
     const suggestions: string[] = [];
     const clientInfo: Partial<FormData> = {};
-    let parsedBusinessSize = 'individual'; // Initialize with default value
 
     // Style normalization maps for handling ambiguous, misspelled, and invalid styles
     const styleNormalization: Record<string, string> = {
@@ -1349,84 +1348,206 @@ export default function QuotationPage() {
     }
 
     // --- 1. Typeface(s) Parsing ---
-    // Improved parsing with style/variant handling
+    // Improved parsing with style/variant handling and fuzzy matching
     const items: FormItem[] = [];
     const mentionedTypefaces = new Set<string>();
     const needsConfirmation: string[] = [];
 
-    // Extract typeface families and their mentioned styles (EXACT MATCH ONLY)
+    // Helper: fuzzy match for typeface family
+    function fuzzyMatchTypeface(input: string) {
+      return ytfTypefaces.find(typeface => {
+        const familyLower = typeface.family.toLowerCase();
+        return input.includes(familyLower) || familyLower.includes(input);
+      });
+    }
+
+    // Try to extract typeface and style from input
     if (ytfTypefaces && Array.isArray(ytfTypefaces)) {
       ytfTypefaces.forEach(typeface => {
         const familyName = typeface.family.toLowerCase();
-        // Only match exact family name (not substring)
-        const familyRegex = new RegExp(`\\b${familyName.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'i');
-        if (familyRegex.test(lowerInput)) {
-          const availableStyles = typeface.variants;
-          const mentionedStyles: string[] = [];
-
-          // Look for specific style mentions in the input
-          if (availableStyles && Array.isArray(availableStyles)) {
-            availableStyles.forEach(style => {
-              const styleLower = style.toLowerCase();
-              if (lowerInput.includes(styleLower)) {
-                mentionedStyles.push(style);
-              }
+        if (lowerInput.includes(familyName)) {
+          // Try to extract style from the phrase after the family name
+          // Improved regex to be more flexible and capture the full style phrase
+          const styleRegex = new RegExp(`${familyName}\\s+([a-zA-Z\\s]+?)(?=\\s+(?:for|and|with|on|in|at|,|$))`, 'i');
+          const styleMatch = lowerInput.match(styleRegex);
+          let mentionedStyles: string[] = [];
+          
+          if (typeof window !== 'undefined') {
+            console.log('AI Typeface Extraction Debug:', {
+              familyName,
+              input: lowerInput,
+              styleMatch: styleMatch ? styleMatch[1] : 'no match',
+              availableVariants: typeface.variants
             });
-
-            // If no specific styles mentioned, look for general style terms
-            if (mentionedStyles.length === 0) {
-              const generalStyleTerms = ['italic', 'bold', 'light', 'thin', 'regular', 'normal', 'medium'];
-              generalStyleTerms.forEach(term => {
-                if (lowerInput.includes(term)) {
-                  const match = findBestStyleMatch(term, availableStyles);
-                  if (match.confidence !== 'exact') {
-                    needsConfirmation.push(`${typeface.family} ${match.style} (interpreted from "${term}")`);
+          }
+          
+          if (styleMatch && styleMatch[1]) {
+            // Try to match the extracted style to available styles (fuzzy)
+            const stylePhrase = styleMatch[1].trim();
+            
+            if (typeof window !== 'undefined') {
+              console.log('AI Typeface Extraction: Extracted style phrase:', stylePhrase);
+            }
+            
+            // First, try exact match (case-insensitive)
+            const exactMatch = typeface.variants.find(v => 
+              v.toLowerCase() === stylePhrase.toLowerCase()
+            );
+            if (exactMatch) {
+              mentionedStyles.push(exactMatch);
+              if (typeof window !== 'undefined') {
+                console.log('AI Typeface Extraction: Exact match found:', exactMatch);
+              }
+            } else {
+              // Try partial match (the extracted phrase contains the variant)
+              const partialMatch = typeface.variants.find(v => 
+                stylePhrase.toLowerCase().includes(v.toLowerCase()) ||
+                v.toLowerCase().includes(stylePhrase.toLowerCase())
+              );
+              if (partialMatch) {
+                mentionedStyles.push(partialMatch);
+                if (typeof window !== 'undefined') {
+                  console.log('AI Typeface Extraction: Partial match found:', partialMatch);
+                }
+              } else {
+                // Try splitting by space and matching each word
+                const words = stylePhrase.split(' ');
+                const matchedVariants = new Set<string>();
+                
+                // For each word, find variants that contain it
+                words.forEach(word => {
+                  const matchingVariants = typeface.variants.filter(v => 
+                    v.toLowerCase().includes(word.toLowerCase())
+                  );
+                  matchingVariants.forEach(v => matchedVariants.add(v));
+                });
+                
+                // If we found variants, use the one that best matches the original phrase
+                if (matchedVariants.size > 0) {
+                  const bestMatch = Array.from(matchedVariants).find(v => 
+                    v.toLowerCase().includes(stylePhrase.toLowerCase()) ||
+                    stylePhrase.toLowerCase().includes(v.toLowerCase())
+                  ) || Array.from(matchedVariants)[0];
+                  mentionedStyles.push(bestMatch);
+                  if (typeof window !== 'undefined') {
+                    console.log('AI Typeface Extraction: Word-based match found:', bestMatch);
                   }
-                  mentionedStyles.push(match.style);
+                } else {
+                  // Fallback: add the whole phrase as a style for debugging
+                  mentionedStyles.push(stylePhrase);
+                  if (typeof window !== 'undefined') {
+                    console.warn('AI Typeface Extraction: Unmatched style phrase:', stylePhrase);
+                  }
                 }
+              }
+            }
+          }
+          
+          // Additional pattern for cases where user says "Cafuné Bold Italic" without "YTF"
+          if (mentionedStyles.length === 0) {
+            const familyNameWithoutPrefix = familyName.replace('ytf ', '').replace('ytf', '');
+            const alternativeStyleRegex = new RegExp(`${familyNameWithoutPrefix}\\s+([a-zA-Z\\s]+?)(?=\\s+(?:for|and|with|on|in|at|,|$))`, 'i');
+            const alternativeStyleMatch = lowerInput.match(alternativeStyleRegex);
+            
+            if (alternativeStyleMatch && alternativeStyleMatch[1]) {
+              const stylePhrase = alternativeStyleMatch[1].trim();
+              
+              if (typeof window !== 'undefined') {
+                console.log('AI Typeface Extraction: Alternative pattern matched:', stylePhrase);
+              }
+              
+              // Try exact match first
+              const exactMatch = typeface.variants.find(v => 
+                v.toLowerCase() === stylePhrase.toLowerCase()
+              );
+              if (exactMatch) {
+                mentionedStyles.push(exactMatch);
+              } else {
+                // Try partial match
+                const partialMatch = typeface.variants.find(v => 
+                  stylePhrase.toLowerCase().includes(v.toLowerCase()) ||
+                  v.toLowerCase().includes(stylePhrase.toLowerCase())
+                );
+                if (partialMatch) {
+                  mentionedStyles.push(partialMatch);
+                }
+              }
+            }
+          }
+          // If no style found, fallback to all available styles
+          if (mentionedStyles.length === 0 && typeface.variants.length > 0) {
+            mentionedStyles.push(typeface.variants[0]);
+          }
+          mentionedStyles.forEach(style => {
+            const itemKey = `${typeface.family}-${style}`;
+            if (!mentionedTypefaces.has(itemKey)) {
+              mentionedTypefaces.add(itemKey);
+              items.push({
+                id: crypto.randomUUID(),
+                typefaceFamily: typeface.family,
+                typefaceVariant: style,
+                typeface: `${typeface.family} ${style}`,
+                languageCut: getLanguageCutForVariant(style),
+                basePrice: 0, // will be set below
+                amount: 0, // will be set below
+                licenseType: '', // will be set below
+                usage: '' // will be set below
               });
             }
-
-            // If still no styles found, default to first available style
-            if (mentionedStyles.length === 0 && availableStyles.length > 0) {
-              mentionedStyles.push(availableStyles[0]);
-            }
-
-            // Add each mentioned style as a separate item (but don't add unrelated families)
-            if (mentionedStyles && Array.isArray(mentionedStyles)) {
-              mentionedStyles.forEach(style => {
-                const itemKey = `${typeface.family}-${style}`;
-                if (!mentionedTypefaces.has(itemKey)) {
-                  mentionedTypefaces.add(itemKey);
-                  // We'll add license types later
-                  items.push({
-                    id: crypto.randomUUID(),
-                    typefaceFamily: typeface.family,
-                    typefaceVariant: style,
-                    typeface: `${typeface.family} ${style}`,
-                    languageCut: getLanguageCutForVariant(style),
-                    basePrice: 0, // will be set below
-                    amount: 0, // will be set below
-                    licenseType: '', // will be set below
-                    usage: '' // will be set below
-                  });
-                }
-              });
-            }
+          });
+        }
+      });
+    }
+    // Fallback: try to fuzzy match any typeface name in the input
+    if (items.length === 0 && ytfTypefaces && Array.isArray(ytfTypefaces)) {
+      ytfTypefaces.forEach(typeface => {
+        const familyLower = typeface.family.toLowerCase();
+        if (lowerInput.includes(familyLower.split(' ')[1])) { // e.g. 'cafuné' in 'ytf cafuné bold italic'
+          items.push({
+            id: crypto.randomUUID(),
+            typefaceFamily: typeface.family,
+            typefaceVariant: typeface.variants[0],
+            typeface: `${typeface.family} ${typeface.variants[0]}`,
+            languageCut: getLanguageCutForVariant(typeface.variants[0]),
+            basePrice: 0,
+            amount: 0,
+            licenseType: '',
+            usage: ''
+          });
+          if (typeof window !== 'undefined') {
+            console.warn('AI Typeface Extraction: Fuzzy matched typeface:', typeface.family);
           }
         }
       });
     }
-
     // If no typefaces found, add suggestions
     if (items.length === 0) {
       suggestions.push('Please specify which YTF typefaces you would like to license (e.g., "YTF Gióng", "YTF Xanh Italic")');
+      if (typeof window !== 'undefined') {
+        console.warn('AI Typeface Extraction: No typefaces detected for input:', input);
+      }
     }
 
     // --- 2. Business Size Parsing ---
-    
-    // Extract employee count
-    const employeeMatch = lowerInput.match(/(\d+)\s*(?:employees?|people|team members?|staff)/);
+    // Only declare parsedBusinessSize once, before employee regex logic
+    let parsedBusinessSize = 'individual';
+    const employeeRegexes = [
+      /(\d+)\s*(?:employees?|people|team members?|staff)/i,
+      /currently have (\d+)/i,
+      /team of (\d+)/i,
+      /(\d+)-person team/i,
+      /(\d+)\s*person(s)?/i,
+      /(\d+)\s*staff/i,
+      /(\d+)\s*members/i
+    ];
+    let employeeMatch = null;
+    for (const regex of employeeRegexes) {
+      const match = lowerInput.match(regex);
+      if (match) {
+        employeeMatch = match;
+        break;
+      }
+    }
     if (employeeMatch) {
       const count = parseInt(employeeMatch[1]);
       if (count === 1) {
@@ -1454,50 +1575,150 @@ export default function QuotationPage() {
     // --- 3. License Types Parsing ---
     const licenseTypes = new Set<string>();
     
-    // Only include Desktop if explicitly mentioned or reasonably inferred
-    if (lowerInput.includes('desktop') || 
-        lowerInput.includes('install') || 
-        lowerInput.includes('design work') || 
-        lowerInput.includes('computer') ||
-        lowerInput.includes('software') ||
-        lowerInput.includes('application') ||
-        lowerInput.includes('program') ||
-        lowerInput.includes('design software') ||
-        lowerInput.includes('adobe') ||
-        lowerInput.includes('illustrator') ||
-        lowerInput.includes('photoshop') ||
-        lowerInput.includes('indesign') ||
-        lowerInput.includes('figma') ||
-        lowerInput.includes('sketch')) {
-      licenseTypes.add('desktop');
-    }
-    
-    if (lowerInput.includes('website') || lowerInput.includes('web')) {
-      licenseTypes.add('web');
-    }
-    // Only add 'app' if input explicitly mentions app, software product, or mobile application
-    if (/(\bapp\b|\bmobile app\b|\bmobile application\b|\bsoftware product\b|\bsoftware application\b)/.test(lowerInput)) {
-      licenseTypes.add('app');
-    }
-    if (lowerInput.includes('logo') || lowerInput.includes('brand identity') || lowerInput.includes('logotype')) {
-      licenseTypes.add('logo');
-    }
-    if (lowerInput.includes('tv') || lowerInput.includes('video') || lowerInput.includes('broadcast')) {
-      licenseTypes.add('broadcast');
-    }
-    if (lowerInput.includes('packaging') || lowerInput.includes('label')) {
-      licenseTypes.add('packaging');
-    }
-    if (lowerInput.includes('tote') || lowerInput.includes('shirt') || lowerInput.includes('merchandise')) {
-      licenseTypes.add('merchandising');
-    }
-    if (lowerInput.includes('book') || lowerInput.includes('editorial') || lowerInput.includes('publishing')) {
-      licenseTypes.add('publishing');
-    }
-    
-    // If no license types detected, add a suggestion instead of auto-including Desktop
+    // Synonym/context mapping for license types
+    const licenseTypeSynonyms: Record<string, string> = {
+      // Web
+      'web use': 'web',
+      'website': 'web',
+      'site use': 'web',
+      'used on our website': 'web',
+      'used on website': 'web',
+      'on our website': 'web',
+      'on website': 'web',
+      'online': 'web',
+      'web project': 'web',
+      'site': 'web',
+      'webpage': 'web',
+      'internet': 'web',
+      'digital': 'web',
+      'browser': 'web',
+      'browsers': 'web',
+      // Packaging
+      'product packaging': 'packaging',
+      'packaging': 'packaging',
+      'on packs': 'packaging',
+      'on pack': 'packaging',
+      'on packaging': 'packaging',
+      'on product packaging': 'packaging',
+      'print packaging': 'packaging',
+      'printed packaging': 'packaging',
+      'printed on packaging': 'packaging',
+      'pack': 'packaging',
+      'packs': 'packaging',
+      'box': 'packaging',
+      'boxes': 'packaging',
+      'label': 'packaging',
+      'labels': 'packaging',
+      'container': 'packaging',
+      'containers': 'packaging',
+      'bottle': 'packaging',
+      'bottles': 'packaging',
+      'can': 'packaging',
+      'cans': 'packaging',
+      // Desktop
+      'desktop': 'desktop',
+      'desktops': 'desktop',
+      'install': 'desktop',
+      'installation': 'desktop',
+      'installations': 'desktop',
+      'design work': 'desktop',
+      'computer': 'desktop',
+      'computers': 'desktop',
+      'software': 'desktop',
+      'softwares': 'desktop',
+      'application': 'desktop',
+      'applications': 'desktop',
+      'program': 'desktop',
+      'programs': 'desktop',
+      'design software': 'desktop',
+      'adobe': 'desktop',
+      'illustrator': 'desktop',
+      'photoshop': 'desktop',
+      'indesign': 'desktop',
+      'figma': 'desktop',
+      'sketch': 'desktop',
+      'workstation': 'desktop',
+      'workstations': 'desktop',
+      // Logo
+      'logo': 'logo',
+      'logos': 'logo',
+      'branding': 'logo',
+      'brand identity': 'logo',
+      'brand identities': 'logo',
+      'logotype': 'logo',
+      'logotypes': 'logo',
+      'wordmark': 'logo',
+      'wordmarks': 'logo',
+      'trademark': 'logo',
+      'trademarks': 'logo',
+      // App
+      'app': 'app',
+      'apps': 'app',
+      'mobile app': 'app',
+      'mobile apps': 'app',
+      'mobile application': 'app',
+      'mobile applications': 'app',
+      'software product': 'app',
+      'software products': 'app',
+      'software application': 'app',
+      'software applications': 'app',
+      // Broadcast
+      'tv': 'broadcast',
+      'tvs': 'broadcast',
+      'video': 'broadcast',
+      'videos': 'broadcast',
+      'broadcast': 'broadcast',
+      'broadcasts': 'broadcast',
+      'television': 'broadcast',
+      'televisions': 'broadcast',
+      'streaming': 'broadcast',
+      'stream': 'broadcast',
+      'streams': 'broadcast',
+      // Merchandising
+      'tote': 'merchandising',
+      'totes': 'merchandising',
+      'shirt': 'merchandising',
+      'shirts': 'merchandising',
+      'merchandise': 'merchandising',
+      'merchandises': 'merchandising',
+      'clothing': 'merchandising',
+      'clothes': 'merchandising',
+      'apparel': 'merchandising',
+      'garment': 'merchandising',
+      'garments': 'merchandising',
+      // Publishing
+      'book': 'publishing',
+      'books': 'publishing',
+      'editorial': 'publishing',
+      'editorials': 'publishing',
+      'publishing': 'publishing',
+      'publication': 'publishing',
+      'publications': 'publishing',
+      'magazine': 'publishing',
+      'magazines': 'publishing',
+      'newspaper': 'publishing',
+      'newspapers': 'publishing',
+      'journal': 'publishing',
+      'journals': 'publishing',
+      'print': 'publishing',
+      'printed': 'publishing',
+      'printed material': 'publishing',
+      'printed materials': 'publishing',
+    };
+
+    // Map synonyms/contexts to license types
+    Object.entries(licenseTypeSynonyms).forEach(([phrase, mappedType]) => {
+      if (lowerInput.includes(phrase)) {
+        licenseTypes.add(mappedType);
+      }
+    });
+
+    // If no license types detected, add a suggestion and log a warning
     if (licenseTypes.size === 0) {
       suggestions.push('Please specify how you plan to use the typeface (e.g., "web use", "desktop installation", "logo design", "app development")');
+      if (typeof window !== 'undefined') {
+        console.warn('AI License Extraction: No license types detected for input:', input);
+      }
     }
 
     // --- 4. Usage Tiers Parsing ---
@@ -1551,6 +1772,8 @@ export default function QuotationPage() {
       suggestions
     };
   };
+
+  const aiInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   return (
     <div className="min-h-screen bg-background pb-14 md:pb-0">
@@ -1902,22 +2125,28 @@ export default function QuotationPage() {
                         {/* AI Input Interface */}
                         <div className="space-y-3">
                           <textarea
-                             className="w-full border border-outlinePrimary rounded-md p-4 font-grand resize-none focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500"
-                             style={{ fontFamily: 'YTF Grand 123, monospace', fontWeight: 400, fontSize: 20, lineHeight: 1.4 }}
-                             rows={4}
-                             placeholder="Describe your typeface needs in natural language. For example:&#10;&#10;• 'I need YTF Gióng for a web project, 15 employees, commercial use'&#10;• 'Looking for a display font for my startup logo, around 10 people'&#10;• 'Need fonts for a book project, individual license'&#10;• 'Want to use YTF Grand 123 for mobile app, 50 employees'"
-                             value={aiInput}
-                             onChange={(e) => setAiInput(e.target.value)}
-                             onKeyDown={(e) => {
-                               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                                 e.preventDefault();
-                                 if (aiInput.trim() && !isAiProcessing) {
-                                   processAiInput(aiInput);
-                                 }
-                               }
-                             }}
-                             disabled={isAiProcessing}
-                           />
+                            ref={aiInputRef}
+                            className="w-full border-0 border-b border-black rounded-none bg-transparent p-0 font-grand resize-none focus:outline-none focus:ring-0 focus:border-b-2 focus:border-black"
+                            style={{ fontFamily: 'YTF Grand 123, monospace', fontWeight: 400, fontSize: 20, lineHeight: 1.4, minHeight: '48px', height: 'auto', overflow: 'hidden' }}
+                            rows={1}
+                            placeholder="Describe your needs"
+                            value={aiInput}
+                            onChange={(e) => setAiInput(e.target.value)}
+                            onInput={e => {
+                              const ta = e.currentTarget;
+                              ta.style.height = 'auto';
+                              ta.style.height = ta.scrollHeight + 'px';
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                                e.preventDefault();
+                                if (aiInput.trim() && !isAiProcessing) {
+                                  processAiInput(aiInput);
+                                }
+                              }
+                            }}
+                            disabled={isAiProcessing}
+                          />
                           
                           <div className="flex items-center justify-between">
                             <div></div>
@@ -1944,8 +2173,8 @@ export default function QuotationPage() {
                           <div className="space-y-2">
                             <div className="font-grand text-[14px] text-gray-600">Suggestions:</div>
                             {aiSuggestions.map((suggestion, index) => (
-                              <div key={index} className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                                <p className="font-grand text-[14px] text-gray-700">{suggestion}</p>
+                              <div key={index} className="flex items-center border-b border-black pb-2 mb-2">
+                                <p className="font-grand text-[20px] text-black" style={{ fontFamily: 'YTF Grand 123, monospace', fontWeight: 400, lineHeight: 1.4 }}>{suggestion}</p>
                               </div>
                             ))}
                           </div>
@@ -1956,10 +2185,10 @@ export default function QuotationPage() {
                           <div className="space-y-2">
                             <div className="font-grand text-[14px] text-gray-600">💡 Smart Bundle Suggestions:</div>
                             {aiBundleSuggestions.map((bundle, index) => (
-                              <div key={index} className="p-3 bg-green-50 border border-green-200 rounded-md">
+                              <div key={index} className="flex flex-col border-b border-black pb-2 mb-2">
                                 <div className="flex items-center justify-between mb-2">
-                                  <p className="font-grand text-[14px] text-gray-700 font-medium">{bundle.description}</p>
-                                  <span className="font-grand text-[13px] text-green-700 font-medium">
+                                  <p className="font-grand text-[20px] text-black font-medium" style={{ fontFamily: 'YTF Grand 123, monospace', fontWeight: 400, lineHeight: 1.4 }}>{bundle.description}</p>
+                                  <span className="font-grand text-[13px] text-black font-medium">
                                     Save ${bundle.potentialSavings}
                                   </span>
                                 </div>
@@ -1969,12 +2198,10 @@ export default function QuotationPage() {
                                       ...prev,
                                       items: bundle.items || prev.items
                                     }));
-                                    
-                                    // Bundle items are already properly formatted
-                                    
                                     setAiBundleSuggestions([]);
                                   }}
-                                  className="text-[12px] font-grand bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 transition-colors"
+                                  className="text-[14px] font-grand border border-black rounded px-2 py-1 hover:bg-gray-100 transition-colors"
+                                  style={{ fontFamily: 'YTF Grand 123, monospace', fontWeight: 400 }}
                                 >
                                   Apply Bundle
                                 </button>
