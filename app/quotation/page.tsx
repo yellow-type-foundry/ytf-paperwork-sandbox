@@ -125,6 +125,19 @@ function generateQuotationNumber() {
   }
 }
 
+// Utility: Ensure all items have unique IDs
+function ensureItemsHaveUniqueIds<T extends { id?: string }>(items: T[]): (T & { id: string })[] {
+  const seen = new Set<string>();
+  return items.map((item) => {
+    let id = item.id || crypto.randomUUID();
+    while (seen.has(id)) {
+      id = crypto.randomUUID();
+    }
+    seen.add(id);
+    return { ...item, id };
+  });
+}
+
 export default function QuotationPage() {
   const router = useRouter()
   const [isClient, setIsClient] = useState(false)
@@ -262,7 +275,7 @@ export default function QuotationPage() {
           amount 
         };
       });
-      const subtotal = updatedItems.reduce((sum, item) => sum + (Number.parseFloat(String(item.amount)) || 0), 0);
+      const subtotal = updatedItems.reduce((sum: number, item: any) => sum + item.amount, 0);
       
       // Calculate discount
       const { amount: discountAmount } = calculateDiscount(updatedItems, prev.businessSize);
@@ -316,7 +329,7 @@ export default function QuotationPage() {
     })
 
     // Calculate new totals
-    const subtotal = updatedItems.reduce((sum, item) => sum + (Number.parseFloat(String(item.amount)) || 0), 0)
+    const subtotal = updatedItems.reduce((sum: number, item: any) => sum + item.amount, 0)
     
     // Calculate discount
     const { amount: discountAmount } = calculateDiscount(updatedItems, formData.businessSize);
@@ -324,7 +337,7 @@ export default function QuotationPage() {
 
     setFormData((prev) => ({
       ...prev,
-      items: updatedItems,
+      items: ensureItemsHaveUniqueIds(updatedItems) as FormItem[],
       subtotal,
       discount: discountAmount,
       total,
@@ -483,7 +496,7 @@ export default function QuotationPage() {
       }
 
       // Calculate subtotal and total
-      const subtotal = newItems.reduce((sum, item) => sum + (Number.parseFloat(String(item.amount)) || 0), 0)
+      const subtotal = newItems.reduce((sum: number, item: any) => sum + item.amount, 0)
       
       // Calculate discount
       const { amount: discountAmount } = calculateDiscount(newItems, prev.businessSize);
@@ -491,7 +504,17 @@ export default function QuotationPage() {
 
       return {
         ...prev,
-        items: newItems,
+        items: newItems.map(item => ({
+          id: item.id,
+          typefaceFamily: item.typefaceFamily,
+          typefaceVariant: item.typefaceVariant,
+          typeface: item.typeface,
+          languageCut: item.languageCut,
+          basePrice: item.basePrice,
+          amount: item.amount,
+          licenseType: item.licenseType,
+          usage: item.usage
+        })) as FormItem[],
         subtotal,
         discount: discountAmount,
         total,
@@ -595,7 +618,7 @@ export default function QuotationPage() {
     ];
 
     // Calculate new subtotal and total
-    const subtotal = newItems.reduce((sum, item) => sum + (Number.parseFloat(String(item.amount)) || 0), 0);
+    const subtotal = newItems.reduce((sum: number, item: any) => sum + item.amount, 0);
     
     // Calculate discount
     const { amount: discountAmount } = calculateDiscount(newItems, formData.businessSize);
@@ -603,7 +626,17 @@ export default function QuotationPage() {
 
     setFormData((prev) => ({
       ...prev,
-      items: newItems,
+      items: ensureItemsHaveUniqueIds(newItems).map(item => ({
+        id: item.id,
+        typefaceFamily: item.typefaceFamily,
+        typefaceVariant: item.typefaceVariant,
+        typeface: item.typeface,
+        languageCut: item.languageCut,
+        basePrice: item.basePrice,
+        amount: item.amount,
+        licenseType: item.licenseType,
+        usage: item.usage
+      })) as FormItem[],
       subtotal,
       discount: discountAmount,
       total,
@@ -642,7 +675,7 @@ export default function QuotationPage() {
     const newItemErrors = errors.items.filter((_, i) => i !== itemIndex)
 
     // Recalculate totals
-    const subtotal = newItems.reduce((sum, item) => sum + (Number.parseFloat(String(item.amount)) || 0), 0)
+    const subtotal = newItems.reduce((sum: number, item: any) => sum + item.amount, 0)
     
     // Calculate discount
     const { amount: discountAmount } = calculateDiscount(newItems, formData.businessSize);
@@ -650,7 +683,17 @@ export default function QuotationPage() {
 
     setFormData((prev) => ({
       ...prev,
-      items: newItems,
+      items: ensureItemsHaveUniqueIds(newItems).map(item => ({
+        id: item.id,
+        typefaceFamily: item.typefaceFamily,
+        typefaceVariant: item.typefaceVariant,
+        typeface: item.typeface,
+        languageCut: item.languageCut,
+        basePrice: item.basePrice,
+        amount: item.amount,
+        licenseType: item.licenseType,
+        usage: item.usage
+      })) as FormItem[],
       subtotal,
       discount: discountAmount,
       total,
@@ -674,6 +717,7 @@ export default function QuotationPage() {
       clientEmail: validateField("clientEmail", formData.clientEmail),
       businessSize: validateField("businessSize", formData.businessSize),
       items: formData.items.map((item, index) => ({
+        id: item.id,
         typefaceFamily: validateItemField(index, "typefaceFamily", item.typefaceFamily),
         typefaceVariant: validateItemField(index, "typefaceVariant", item.typefaceVariant),
         typeface: "",
@@ -1014,14 +1058,23 @@ export default function QuotationPage() {
             usage: aiResult.usage
           };
         });
+        // Ensure all items have unique IDs (fix for React key duplication)
+        const seenIds = new Set();
+        for (let i = 0; i < items.length; i++) {
+          if (seenIds.has(items[i].id)) {
+            items[i].id = crypto.randomUUID();
+          }
+          seenIds.add(items[i].id);
+        }
 
         // Completely reset form data with new AI results
+        const itemsWithIds = ensureItemsHaveUniqueIds(items.length > 0 ? items : []);
         const newFormData = {
           ...formData,
-          items: items.length > 0 ? items : [],
+          items: itemsWithIds,
           businessSize: aiResult.businessSize,
           // Recalculate totals based on new items
-          subtotal: items.reduce((sum, item) => sum + item.amount, 0),
+          subtotal: itemsWithIds.reduce((sum: number, item: any) => sum + item.amount, 0),
           discount: 0, // Will be recalculated below
           total: 0 // Will be recalculated below
         };
@@ -1035,7 +1088,20 @@ export default function QuotationPage() {
         }
 
         // Force complete state update
-        setFormData(newFormData);
+        setFormData({
+          ...newFormData,
+          items: ensureItemsHaveUniqueIds(items).map(item => ({
+            id: item.id,
+            typefaceFamily: item.typefaceFamily,
+            typefaceVariant: item.typefaceVariant,
+            typeface: item.typeface,
+            languageCut: item.languageCut,
+            basePrice: item.basePrice,
+            amount: item.amount,
+            licenseType: item.licenseType,
+            usage: item.usage
+          })) as FormItem[],
+        });
         
         // Force PDF preview re-render
         setPdfPreviewKey(prev => prev + 1);
@@ -1088,6 +1154,19 @@ export default function QuotationPage() {
         const parsed = parseAiInput(input);
 
         // Completely reset form data with parsed results
+        // Ensure all items have unique IDs
+        const uniqueItems: FormItem[] = ensureItemsHaveUniqueIds((parsed.items && parsed.items.length > 0 ? parsed.items : []).map(item => ({
+          ...item,
+          id: item.id || crypto.randomUUID(),
+          typefaceFamily: item.typefaceFamily,
+          typefaceVariant: item.typefaceVariant,
+          typeface: item.typeface,
+          languageCut: item.languageCut,
+          basePrice: item.basePrice,
+          amount: item.amount,
+          licenseType: item.licenseType,
+          usage: item.usage
+        })));
         const newFormData = {
           ...formData,
           clientEmail: parsed.clientInfo.clientEmail || formData.clientEmail,
@@ -1095,10 +1174,10 @@ export default function QuotationPage() {
             ...formData.billingAddress,
             ...parsed.clientInfo.billingAddress
           },
-          items: parsed.items && parsed.items.length > 0 ? parsed.items : [],
+          items: uniqueItems,
           businessSize: parsed.businessSize || formData.businessSize,
           // Recalculate totals based on new items
-          subtotal: parsed.items ? parsed.items.reduce((sum, item) => sum + item.amount, 0) : 0,
+          subtotal: uniqueItems.reduce((sum: number, item: any) => sum + item.amount, 0),
           discount: 0, // Will be recalculated below
           total: 0 // Will be recalculated below
         };
@@ -1112,7 +1191,20 @@ export default function QuotationPage() {
         }
 
         // Force complete state update
-        setFormData(newFormData);
+        setFormData({
+          ...newFormData,
+          items: ensureItemsHaveUniqueIds(uniqueItems).map(item => ({
+            id: item.id,
+            typefaceFamily: item.typefaceFamily,
+            typefaceVariant: item.typefaceVariant,
+            typeface: item.typeface,
+            languageCut: item.languageCut,
+            basePrice: item.basePrice,
+            amount: item.amount,
+            licenseType: item.licenseType,
+            usage: item.usage
+          })) as FormItem[],
+        });
 
         // Reset touched fields and errors for new items
         const newTouchedItems = (parsed.items || []).map(() => ({ ...defaultTouchedItem }));
@@ -1145,6 +1237,19 @@ export default function QuotationPage() {
       const parsed = parseAiInput(input);
       
       // Completely reset form data with parsed results
+      // Ensure all items have unique IDs
+      const uniqueItems: FormItem[] = ensureItemsHaveUniqueIds((parsed.items && parsed.items.length > 0 ? parsed.items : []).map(item => ({
+        ...item,
+        id: item.id || crypto.randomUUID(),
+        typefaceFamily: item.typefaceFamily,
+        typefaceVariant: item.typefaceVariant,
+        typeface: item.typeface,
+        languageCut: item.languageCut,
+        basePrice: item.basePrice,
+        amount: item.amount,
+        licenseType: item.licenseType,
+        usage: item.usage
+      })));
       const newFormData = {
         ...formData,
         clientEmail: parsed.clientInfo.clientEmail || formData.clientEmail,
@@ -1152,10 +1257,10 @@ export default function QuotationPage() {
           ...formData.billingAddress,
           ...parsed.clientInfo.billingAddress
         },
-        items: parsed.items && parsed.items.length > 0 ? parsed.items : [],
+        items: uniqueItems,
         businessSize: parsed.businessSize || formData.businessSize,
         // Recalculate totals based on new items
-        subtotal: parsed.items ? parsed.items.reduce((sum, item) => sum + item.amount, 0) : 0,
+        subtotal: uniqueItems.reduce((sum: number, item: any) => sum + item.amount, 0),
         discount: 0, // Will be recalculated below
         total: 0 // Will be recalculated below
       };
@@ -1169,7 +1274,20 @@ export default function QuotationPage() {
       }
 
       // Force complete state update
-      setFormData(newFormData);
+      setFormData({
+        ...newFormData,
+        items: ensureItemsHaveUniqueIds(uniqueItems).map(item => ({
+          id: item.id,
+          typefaceFamily: item.typefaceFamily,
+          typefaceVariant: item.typefaceVariant,
+          typeface: item.typeface,
+          languageCut: item.languageCut,
+          basePrice: item.basePrice,
+          amount: item.amount,
+          licenseType: item.licenseType,
+          usage: item.usage
+        })) as FormItem[],
+      });
 
       // Reset touched fields and errors for new items
       const newTouchedItems = (parsed.items || []).map(() => ({ ...defaultTouchedItem }));
@@ -1528,6 +1646,15 @@ export default function QuotationPage() {
       }
     }
 
+    // Ensure all items have unique IDs (fix for React key duplication)
+    const seenIds = new Set();
+    for (let i = 0; i < items.length; i++) {
+      if (seenIds.has(items[i].id)) {
+        items[i].id = crypto.randomUUID();
+      }
+      seenIds.add(items[i].id);
+    }
+
     // --- 2. Business Size Parsing ---
     // Only declare parsedBusinessSize once, before employee regex logic
     let parsedBusinessSize = 'individual';
@@ -1723,15 +1850,65 @@ export default function QuotationPage() {
 
     // --- 4. Usage Tiers Parsing ---
     let parsedUsage = 'non-commercial';
+    let appDownloadCount: number | null = null;
+    
     if (parsedBusinessSize !== 'individual') {
-      if (lowerInput.includes('under 5000') || lowerInput.includes('small run')) {
-        parsedUsage = 'under-5k';
-      } else if (lowerInput.includes('under 50000') || lowerInput.includes('medium run')) {
-        parsedUsage = 'under-50k';
-      } else if (lowerInput.includes('under 500000') || lowerInput.includes('large run')) {
-        parsedUsage = 'under-500k';
+      // Enhanced download count detection for app licenses
+      const downloadCountRegexes = [
+        /(\d+(?:,\d+)*)\s*(?:downloads?|users?|installs?|installations?)/i,
+        /(\d+(?:,\d+)*)\s*(?:projected|expected|estimated|target)\s*(?:downloads?|users?|installs?)/i,
+        /about\s*(\d+(?:,\d+)*)\s*(?:downloads?|users?|installs?)/i,
+        /approximately\s*(\d+(?:,\d+)*)\s*(?:downloads?|users?|installs?)/i,
+        /around\s*(\d+(?:,\d+)*)\s*(?:downloads?|users?|installs?)/i,
+        /(\d+(?:,\d+)*)\s*(?:downloads?|users?|installs?)\s*(?:projected|expected|estimated)/i,
+      ];
+      
+      for (const regex of downloadCountRegexes) {
+        const match = lowerInput.match(regex);
+        if (match) {
+          const countStr = match[1].replace(/,/g, '');
+          const count = parseInt(countStr);
+          if (!isNaN(count) && count > 0) {
+            appDownloadCount = count;
+            if (typeof window !== 'undefined') {
+              console.log('AI Usage Extraction: Detected download count:', count);
+            }
+            break;
+          }
+        }
+      }
+      
+      // Determine usage tier based on download count or fallback patterns
+      if (appDownloadCount !== null) {
+        if (appDownloadCount <= 5000) {
+          parsedUsage = '5k';
+        } else if (appDownloadCount <= 10000) {
+          parsedUsage = '10k';
+        } else if (appDownloadCount <= 100000) {
+          parsedUsage = '100k';
+        } else if (appDownloadCount <= 500000) {
+          parsedUsage = '500k';
+        } else {
+          parsedUsage = '1m'; // Default to highest tier for very large counts
+        }
+        if (typeof window !== 'undefined') {
+          console.log('AI Usage Extraction: Set usage tier to', parsedUsage, 'for', appDownloadCount, 'downloads');
+        }
       } else {
-        parsedUsage = 'under-5k';
+        // Fallback to pattern matching for non-app licenses
+        if (lowerInput.includes('under 5000') || lowerInput.includes('small run')) {
+          parsedUsage = '5k';
+        } else if (lowerInput.includes('under 10000') || lowerInput.includes('medium run')) {
+          parsedUsage = '10k';
+        } else if (lowerInput.includes('under 100000') || lowerInput.includes('large run')) {
+          parsedUsage = '100k';
+        } else if (lowerInput.includes('under 500000')) {
+          parsedUsage = '500k';
+        } else if (lowerInput.includes('under 1000000') || lowerInput.includes('1m')) {
+          parsedUsage = '1m';
+        } else {
+          parsedUsage = '5k';
+        }
       }
     }
 
@@ -1742,8 +1919,17 @@ export default function QuotationPage() {
         // Use correct usage for each license type
         let usage = parsedUsage;
         if (['desktop', 'web', 'logo'].includes(licenseType)) {
+          // Business-size-based licenses use business size usage
           usage = getBusinessSizeUsage(parsedBusinessSize);
+        } else if (licenseType === 'app' && appDownloadCount !== null) {
+          // App licenses use the parsed usage tier based on download count
+          usage = parsedUsage;
+        } else if (licenseType === 'app') {
+          // App license without download count defaults to 5k
+          usage = '5k';
         }
+        // Other license types (packaging, broadcast, merchandising, publishing) use parsedUsage
+        
         const amount = calculateItemPrice(
           baseItem.typefaceFamily,
           parsedBusinessSize,
@@ -1763,6 +1949,16 @@ export default function QuotationPage() {
     // Add confirmation suggestions if needed
     if (needsConfirmation.length > 0) {
       suggestions.push(`Please confirm these style selections: ${needsConfirmation.join(', ')}`);
+    }
+    
+    // Add usage tier feedback
+    if (appDownloadCount !== null) {
+      const tierName = parsedUsage === '5k' ? 'Up to 5K users' :
+                      parsedUsage === '10k' ? 'Up to 10K users' :
+                      parsedUsage === '100k' ? 'Up to 100K users' :
+                      parsedUsage === '500k' ? 'Up to 500K users' :
+                      parsedUsage === '1m' ? 'Up to 1M users' : parsedUsage;
+      suggestions.push(`Detected ${appDownloadCount.toLocaleString()} downloads for app license - applied ${tierName} tier`);
     }
 
     return {
@@ -2196,7 +2392,17 @@ export default function QuotationPage() {
                                   onClick={() => {
                                     setFormData(prev => ({
                                       ...prev,
-                                      items: bundle.items || prev.items
+                                      items: (bundle.items || prev.items).map(item => ({
+                                        id: item.id,
+                                        typefaceFamily: item.typefaceFamily,
+                                        typefaceVariant: item.typefaceVariant,
+                                        typeface: item.typeface,
+                                        languageCut: item.languageCut,
+                                        basePrice: item.basePrice,
+                                        amount: item.amount,
+                                        licenseType: item.licenseType,
+                                        usage: item.usage
+                                      })) as FormItem[]
                                     }));
                                     setAiBundleSuggestions([]);
                                   }}
