@@ -75,7 +75,7 @@ export const TypefaceItem: React.FC<TypefaceItemProps> = ({
     const selectedTypeface = ytfTypefaces.find(tf => tf.family === item.typefaceFamily)
     return selectedTypeface?.variants || []
   }, [ytfTypefaces, item.typefaceFamily])
-
+  
   // Handle license type change
   const handleLicenseTypeChange = (value: string) => {
     onSelectChange("licenseType", value)

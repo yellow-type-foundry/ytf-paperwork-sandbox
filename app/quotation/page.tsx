@@ -1485,9 +1485,7 @@ export default function QuotationPage() {
         const familyName = typeface.family.toLowerCase();
         if (lowerInput.includes(familyName)) {
           // Try to extract style from the phrase after the family name
-          // Multiple regex patterns to handle different input formats
           let styleMatch = null;
-          let stylePhrase = '';
           
           // Pattern 1: family name followed by style
           const styleRegex1 = new RegExp(`${familyName}\\s+([a-zA-Z\\s]+?)(?=\\s+(?:for|and|with|on|in|at|,|\\.|$)|$)`, 'i');
@@ -1507,20 +1505,19 @@ export default function QuotationPage() {
               familyName,
               input: lowerInput,
               styleMatch: styleMatch ? styleMatch[1] : 'no match',
-              availableVariants: typeface.variants,
-              regex1: styleRegex1.toString(),
-              regex2: familyName.replace('ytf ', '').replace('ytf', '') + '\\s+([a-zA-Z\\s]+?)(?=\\s+(?:for|and|with|on|in|at|,|\\.|$)|$)'
+              availableVariants: typeface.variants
             });
           }
           
           if (styleMatch && styleMatch[1]) {
-            // Try to match the extracted style to available styles (fuzzy)
             const stylePhrase = styleMatch[1].trim();
             if (typeof window !== 'undefined') {
               console.log('AI Typeface Extraction: Extracted style phrase:', stylePhrase);
             }
+            
             // --- STRICT PRIORITY LOGIC ---
             const normalizedStylePhrase = stylePhrase.toLowerCase().replace(/\s+/g, ' ').trim();
+            
             // 1. Exact match
             const exactMatch = typeface.variants.find(v => v.toLowerCase().replace(/\s+/g, ' ').trim() === normalizedStylePhrase);
             if (exactMatch) {
@@ -1564,10 +1561,13 @@ export default function QuotationPage() {
               }
             }
           }
-          // If no style found, fallback to all available styles
+          
+          // If no style found, fallback to first variant
           if (mentionedStyles.length === 0 && typeface.variants.length > 0) {
             mentionedStyles.push(typeface.variants[0]);
           }
+          
+          // Add items for each mentioned style
           mentionedStyles.forEach(style => {
             const itemKey = `${typeface.family}-${style}`;
             if (!mentionedTypefaces.has(itemKey)) {
