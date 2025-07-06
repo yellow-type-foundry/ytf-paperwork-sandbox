@@ -7,6 +7,7 @@ interface QuotationData {
   clientName: string
   clientEmail: string
   clientAddress?: string
+  companyName?: string
   businessSize?: {
     name: string
     description: string
@@ -33,6 +34,8 @@ export async function generateQuotationPDF(formData: any): Promise<Blob> {
       quotationNumber: formData.quotationNumber,
       items: (Array.isArray(formData.items) ? formData.items : []).map((item: any) => ({
         typeface: item.typeface || "",
+        licenseType: item.licenseType || "",
+        usage: item.usage || "",
         amount: Number(item.amount) || 0
       }))
     });
@@ -51,7 +54,13 @@ export async function generateQuotationPDF(formData: any): Promise<Blob> {
       quotationDate: formData.quotationDate || "",
       clientName: formData.clientName || "",
       clientEmail: formData.clientEmail || "",
-      clientAddress: formData.clientAddress || "",
+      clientAddress: [
+        formData.billingAddress?.street,
+        formData.billingAddress?.city,
+        formData.billingAddress?.country,
+        formData.billingAddress?.postalCode
+      ].filter(Boolean).join("\n"),
+              companyName: formData.billingAddress?.companyName || "",
       businessSize: businessSizes.find(size => size.id === formData.businessSize),
       items: (Array.isArray(formData.items) ? formData.items : []).map((item: any) => {
         const safeItem = {
