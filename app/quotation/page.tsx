@@ -1466,156 +1466,138 @@ export default function QuotationPage() {
     }
 
     // --- 1. Typeface(s) Parsing ---
-    // Improved parsing with style/variant handling and fuzzy matching
+    // Improved parsing: longest family match, then strict style extraction
     const items: FormItem[] = [];
     const mentionedTypefaces = new Set<string>();
     const needsConfirmation: string[] = [];
 
-    // Helper: fuzzy match for typeface family
-    function fuzzyMatchTypeface(input: string) {
-      return ytfTypefaces.find(typeface => {
+    // Helper: strict style matching with no fallbacks
+    function findExactStyleMatch(requestedStyle: string, availableStyles: string[]): string | null {
+      const normalizedRequested = requestedStyle.toLowerCase().replace(/\s+/g, ' ').trim();
+      // 1. Exact match
+      const exactMatch = availableStyles.find(style => style.toLowerCase().replace(/\s+/g, ' ').trim() === normalizedRequested);
+      if (exactMatch) return exactMatch;
+      // 2. Compound match
+      const words = normalizedRequested.split(' ');
+      if (words.length > 1) {
+        const compoundMatches = availableStyles.filter(style => words.every(word => style.toLowerCase().includes(word)));
+        if (compoundMatches.length === 1) return compoundMatches[0];
+        if (compoundMatches.length > 1) {
+          const phraseMatch = compoundMatches.find(style => style.toLowerCase().includes(normalizedRequested));
+          if (phraseMatch) return phraseMatch;
+        }
+      }
+      // 3. Style variations
+      const styleVariations: Record<string, string[]> = {
+        'bold italic': ['bold italic', 'italic bold'],
+        'bold': ['bold', 'heavy', 'black'],
+        'italic': ['italic', 'oblique'],
+        'light': ['light', 'thin', 'ultralight'],
+        'regular': ['regular', 'normal', 'book'],
+        'medium': ['medium', 'semibold', 'demi'],
+      };
+      for (const [requested, variations] of Object.entries(styleVariations)) {
+        if (variations.includes(normalizedRequested)) {
+          for (const variation of variations) {
+            const match = availableStyles.find(style => style.toLowerCase().includes(variation));
+            if (match) return match;
+          }
+        }
+      }
+      // 4. No match
+      return null;
+    }
+
+    // Find the longest matching typeface family in the input
+    function extractTypefaceAndStyle(input: string): { typeface: typeof ytfTypefaces[number], style: string } | null {
+      const lowerInput = input.toLowerCase();
+      let bestMatch: typeof ytfTypefaces[number] | null = null;
+      let bestLength = 0;
+      let bestFamily = '';
+      let bestStyle = '';
+      ytfTypefaces.forEach(typeface => {
         const familyLower = typeface.family.toLowerCase();
-        return input.includes(familyLower) || familyLower.includes(input);
+        const idx = lowerInput.indexOf(familyLower);
+        if (idx !== -1 && familyLower.length > bestLength) {
+          bestMatch = typeface;
+          bestLength = familyLower.length;
+          bestFamily = typeface.family;
+          // Extract style: words after the family name
+          const afterFamily = input.slice(idx + familyLower.length).trim();
+          // Style is up to next stop word or punctuation
+          const styleMatch = afterFamily.match(/^([a-zA-Z ]+)/);
+          bestStyle = styleMatch ? styleMatch[1].trim() : '';
+        }
       });
+      if (bestMatch) {
+        return { typeface: bestMatch, style: bestStyle };
+      }
+      return null;
     }
 
     // Try to extract typeface and style from input
-    if (ytfTypefaces && Array.isArray(ytfTypefaces)) {
-      ytfTypefaces.forEach(typeface => {
-        const familyName = typeface.family.toLowerCase();
-        if (lowerInput.includes(familyName)) {
-          // Try to extract style from the phrase after the family name
-          let styleMatch = null;
-          
-          // Pattern 1: family name followed by style
-          const styleRegex1 = new RegExp(`${familyName}\\s+([a-zA-Z\\s]+?)(?=\\s+(?:for|and|with|on|in|at|,|\\.|$)|$)`, 'i');
-          styleMatch = lowerInput.match(styleRegex1);
-          
-          // Pattern 2: if no match, try without the "ytf" prefix
-          if (!styleMatch) {
-            const familyNameWithoutPrefix = familyName.replace('ytf ', '').replace('ytf', '');
-            const styleRegex2 = new RegExp(`${familyNameWithoutPrefix}\\s+([a-zA-Z\\s]+?)(?=\\s+(?:for|and|with|on|in|at|,|\\.|$)|$)`, 'i');
-            styleMatch = lowerInput.match(styleRegex2);
-          }
-          
-          let mentionedStyles: string[] = [];
-          
-          if (typeof window !== 'undefined') {
-            console.log('AI Typeface Extraction Debug:', {
-              familyName,
-              input: lowerInput,
-              styleMatch: styleMatch ? styleMatch[1] : 'no match',
-              availableVariants: typeface.variants
+    const extracted = extractTypefaceAndStyle(input);
+    if (extracted) {
+      const { typeface, style } = extracted;
+      let mentionedStyles: string[] = [];
+      if (style) {
+        const matchedStyle = findExactStyleMatch(style, typeface.variants);
+        if (matchedStyle) {
+          mentionedStyles.push(matchedStyle);
+        } else {
+          suggestions.push(`Style "${style}" not found for ${typeface.family}. Available styles: ${typeface.variants.join(', ')}`);
+        }
+      } else {
+        suggestions.push(`Please specify a style for ${typeface.family}. Available styles: ${typeface.variants.join(', ')}`);
+      }
+      if (mentionedStyles.length > 0) {
+        mentionedStyles.forEach(style => {
+          const itemKey = `${typeface.family}-${style}`;
+          if (!mentionedTypefaces.has(itemKey)) {
+            mentionedTypefaces.add(itemKey);
+            items.push({
+              id: crypto.randomUUID(),
+              typefaceFamily: typeface.family,
+              typefaceVariant: style,
+              typeface: `${typeface.family} ${style}`,
+              languageCut: getLanguageCutForVariant(style),
+              basePrice: 0,
+              amount: 0,
+              licenseType: '',
+              usage: ''
             });
           }
-          
-          if (styleMatch && styleMatch[1]) {
-            const stylePhrase = styleMatch[1].trim();
-            if (typeof window !== 'undefined') {
-              console.log('AI Typeface Extraction: Extracted style phrase:', stylePhrase);
-            }
-            
-            // --- STRICT PRIORITY LOGIC ---
-            const normalizedStylePhrase = stylePhrase.toLowerCase().replace(/\s+/g, ' ').trim();
-            
-            // 1. Exact match
-            const exactMatch = typeface.variants.find(v => v.toLowerCase().replace(/\s+/g, ' ').trim() === normalizedStylePhrase);
-            if (exactMatch) {
-              mentionedStyles.push(exactMatch);
-              if (typeof window !== 'undefined') {
-                console.log('AI Typeface Extraction: Exact match found:', exactMatch);
-              }
-            } else {
-              // 2. Longest substring match
-              const matchingVariants = typeface.variants.filter(v => {
-                const normV = v.toLowerCase().replace(/\s+/g, ' ').trim();
-                return normalizedStylePhrase.includes(normV) || normV.includes(normalizedStylePhrase);
-              });
-              if (matchingVariants.length > 0) {
-                const bestMatch = matchingVariants.reduce((a, b) => (b.length > a.length ? b : a));
-                mentionedStyles.push(bestMatch);
-                if (typeof window !== 'undefined') {
-                  console.log('AI Typeface Extraction: Longest substring match found:', bestMatch);
-                }
-              } else {
-                // 3. Word-based match
-                const words = stylePhrase.split(' ');
-                const matchedVariants = new Set<string>();
-                words.forEach(word => {
-                  const matching = typeface.variants.filter(v => v.toLowerCase().includes(word.toLowerCase()));
-                  matching.forEach(v => matchedVariants.add(v));
-                });
-                if (matchedVariants.size > 0) {
-                  const bestWordMatch = Array.from(matchedVariants).reduce((a, b) => (b.length > a.length ? b : a));
-                  mentionedStyles.push(bestWordMatch);
-                  if (typeof window !== 'undefined') {
-                    console.log('AI Typeface Extraction: Word-based match found:', bestWordMatch);
-                  }
-                } else {
-                  // 4. Fallback: use the first variant
-                  mentionedStyles.push(typeface.variants[0]);
-                  if (typeof window !== 'undefined') {
-                    console.warn('AI Typeface Extraction: Fallback to first variant:', typeface.variants[0]);
-                  }
-                }
-              }
-            }
-          }
-          
-          // If no style found, fallback to first variant
-          if (mentionedStyles.length === 0 && typeface.variants.length > 0) {
-            mentionedStyles.push(typeface.variants[0]);
-          }
-          
-          // Add items for each mentioned style
-          mentionedStyles.forEach(style => {
-            const itemKey = `${typeface.family}-${style}`;
-            if (!mentionedTypefaces.has(itemKey)) {
-              mentionedTypefaces.add(itemKey);
-              items.push({
-                id: crypto.randomUUID(),
-                typefaceFamily: typeface.family,
-                typefaceVariant: style,
-                typeface: `${typeface.family} ${style}`,
-                languageCut: getLanguageCutForVariant(style),
-                basePrice: 0, // will be set below
-                amount: 0, // will be set below
-                licenseType: '', // will be set below
-                usage: '' // will be set below
-              });
-            }
-          });
-        }
-      });
+        });
+      }
     }
-    // Fallback: try to fuzzy match any typeface name in the input
+
+    // Fallback: try to fuzzy match any typeface name in the input (but only if no styles were specified)
     if (items.length === 0 && ytfTypefaces && Array.isArray(ytfTypefaces)) {
       ytfTypefaces.forEach(typeface => {
         const familyLower = typeface.family.toLowerCase();
-        if (lowerInput.includes(familyLower.split(' ')[1])) { // e.g. 'cafuné' in 'ytf cafuné bold italic'
-          items.push({
-            id: crypto.randomUUID(),
-            typefaceFamily: typeface.family,
-            typefaceVariant: typeface.variants[0],
-            typeface: `${typeface.family} ${typeface.variants[0]}`,
-            languageCut: getLanguageCutForVariant(typeface.variants[0]),
-            basePrice: 0,
-            amount: 0,
-            licenseType: '',
-            usage: ''
-          });
-          if (typeof window !== 'undefined') {
-            console.warn('AI Typeface Extraction: Fuzzy matched typeface:', typeface.family);
+        if (input.toLowerCase().includes(familyLower.split(' ')[1])) {
+          // Only add if no specific style was mentioned
+          const hasStyleMention = typeface.variants.some(variant => input.toLowerCase().includes(variant.toLowerCase()));
+          if (!hasStyleMention) {
+            items.push({
+              id: crypto.randomUUID(),
+              typefaceFamily: typeface.family,
+              typefaceVariant: typeface.variants[0],
+              typeface: `${typeface.family} ${typeface.variants[0]}`,
+              languageCut: getLanguageCutForVariant(typeface.variants[0]),
+              basePrice: 0,
+              amount: 0,
+              licenseType: '',
+              usage: ''
+            });
           }
         }
       });
     }
+
     // If no typefaces found, add suggestions
     if (items.length === 0) {
       suggestions.push('Please specify which YTF typefaces you would like to license (e.g., "YTF Gióng", "YTF Xanh Italic")');
-      if (typeof window !== 'undefined') {
-        console.warn('AI Typeface Extraction: No typefaces detected for input:', input);
-      }
     }
 
     // --- 2. Business Size Parsing ---
