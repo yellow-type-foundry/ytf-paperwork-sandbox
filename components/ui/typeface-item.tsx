@@ -121,7 +121,7 @@ export const TypefaceItem: React.FC<TypefaceItemProps> = ({
               <SelectValue placeholder="Select style" style={{ fontSize: '14px' }} />
             </SelectTrigger>
             <SelectContent>
-              {availableVariants.map((variant) => (
+              {availableVariants && availableVariants.map((variant) => (
                 <SelectItem key={variant} value={variant}>
                   {variant}
                 </SelectItem>
