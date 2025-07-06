@@ -1485,9 +1485,21 @@ export default function QuotationPage() {
         const familyName = typeface.family.toLowerCase();
         if (lowerInput.includes(familyName)) {
           // Try to extract style from the phrase after the family name
-          // Improved regex to be more flexible and capture the full style phrase
-          const styleRegex = new RegExp(`${familyName}\\s+([a-zA-Z\\s]+?)(?=\\s+(?:for|and|with|on|in|at|,|\\.|$))`, 'i');
-          const styleMatch = lowerInput.match(styleRegex);
+          // Multiple regex patterns to handle different input formats
+          let styleMatch = null;
+          let stylePhrase = '';
+          
+          // Pattern 1: family name followed by style
+          const styleRegex1 = new RegExp(`${familyName}\\s+([a-zA-Z\\s]+?)(?=\\s+(?:for|and|with|on|in|at|,|\\.|$)|$)`, 'i');
+          styleMatch = lowerInput.match(styleRegex1);
+          
+          // Pattern 2: if no match, try without the "ytf" prefix
+          if (!styleMatch) {
+            const familyNameWithoutPrefix = familyName.replace('ytf ', '').replace('ytf', '');
+            const styleRegex2 = new RegExp(`${familyNameWithoutPrefix}\\s+([a-zA-Z\\s]+?)(?=\\s+(?:for|and|with|on|in|at|,|\\.|$)|$)`, 'i');
+            styleMatch = lowerInput.match(styleRegex2);
+          }
+          
           let mentionedStyles: string[] = [];
           
           if (typeof window !== 'undefined') {
@@ -1496,7 +1508,8 @@ export default function QuotationPage() {
               input: lowerInput,
               styleMatch: styleMatch ? styleMatch[1] : 'no match',
               availableVariants: typeface.variants,
-              regex: styleRegex.toString()
+              regex1: styleRegex1.toString(),
+              regex2: familyName.replace('ytf ', '').replace('ytf', '') + '\\s+([a-zA-Z\\s]+?)(?=\\s+(?:for|and|with|on|in|at|,|\\.|$)|$)'
             });
           }
           
@@ -1547,38 +1560,6 @@ export default function QuotationPage() {
                   if (typeof window !== 'undefined') {
                     console.warn('AI Typeface Extraction: Fallback to first variant:', typeface.variants[0]);
                   }
-                }
-              }
-            }
-          }
-          
-          // Additional pattern for cases where user says "Cafuné Bold Italic" without "YTF"
-          if (mentionedStyles.length === 0) {
-            const familyNameWithoutPrefix = familyName.replace('ytf ', '').replace('ytf', '');
-            const alternativeStyleRegex = new RegExp(`${familyNameWithoutPrefix}\\s+([a-zA-Z\\s]+?)(?=\\s+(?:for|and|with|on|in|at|,|$))`, 'i');
-            const alternativeStyleMatch = lowerInput.match(alternativeStyleRegex);
-            
-            if (alternativeStyleMatch && alternativeStyleMatch[1]) {
-              const stylePhrase = alternativeStyleMatch[1].trim();
-              
-              if (typeof window !== 'undefined') {
-                console.log('AI Typeface Extraction: Alternative pattern matched:', stylePhrase);
-              }
-              
-              // Try exact match first
-              const exactMatch = typeface.variants.find(v => 
-                v.toLowerCase() === stylePhrase.toLowerCase()
-              );
-              if (exactMatch) {
-                mentionedStyles.push(exactMatch);
-              } else {
-                // Try partial match
-                const partialMatch = typeface.variants.find(v => 
-                  stylePhrase.toLowerCase().includes(v.toLowerCase()) ||
-                  v.toLowerCase().includes(stylePhrase.toLowerCase())
-                );
-                if (partialMatch) {
-                  mentionedStyles.push(partialMatch);
                 }
               }
             }
