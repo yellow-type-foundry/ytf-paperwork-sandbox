@@ -107,7 +107,7 @@ export function MultiSelectDropdown({
             type="button"
             id={name}
             className="ytf-form-input flex-1 w-full bg-transparent border-none !border-b-0 outline-none placeholder:ytf-form-input flex items-center justify-between"
-            style={{ fontFamily: 'YTF Grand 123, monospace', fontSize: '12px', lineHeight: '1.4', height: '18px', padding: 0 }}
+            style={{ fontFamily: 'YTF Grand 123, monospace', fontSize: '14px', lineHeight: '1.4', height: '18px', padding: 0 }}
             aria-required={required}
           >
             <span className="flex-1 truncate text-left" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -133,7 +133,7 @@ export function MultiSelectDropdown({
               <button
                 type="button"
                 key={option.value}
-                className={`flex items-center w-full px-3 py-2 text-left text-[12px] font-ytf-grand ${value.includes(option.value) ? 'bg-black text-white' : 'bg-white text-black'} hover:bg-black hover:text-white transition-colors`}
+                className={`flex items-center w-full px-3 py-2 text-left text-[14px] font-ytf-grand ${value.includes(option.value) ? 'bg-black text-white' : 'bg-white text-black'} hover:bg-black hover:text-white transition-colors`}
                 onClick={() => handleToggle(option.value)}
                 tabIndex={0}
                 aria-pressed={value.includes(option.value)}

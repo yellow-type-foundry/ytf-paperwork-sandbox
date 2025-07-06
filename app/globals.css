@@ -71,7 +71,7 @@
 /* Mono heading style for card titles */
 .heading-mono {
   font-family: var(--font-ytf-vangmono), monospace;
-  font-size: 12px;
+  font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   line-height: 1;
@@ -80,7 +80,7 @@
 
 .ytf-form-error {
   font-family: 'YTF Grand 123', monospace;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   line-height: 1.4;
   color: #F73E3E;

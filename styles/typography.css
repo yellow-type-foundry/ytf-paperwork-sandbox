@@ -38,7 +38,7 @@
 
 .ytf-label {
   font-family: "YTF VangMono", monospace;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.4;
   letter-spacing: -0.01em;
   text-transform: uppercase;
@@ -115,7 +115,7 @@
 
 .ytf-form-label {
   font-family: "YTF Vang Mono", monospace;
-  font-size: 12px;
+  font-size: 14px;
   color: #000;
   letter-spacing: normal;
   line-height: 1;
@@ -124,7 +124,7 @@
 
 .ytf-form-input {
   font-family: "YTF Grand 123", serif;
-  font-size: 12px;
+  font-size: 14px;
   color: #000;
   letter-spacing: normal;
   line-height: 1;
@@ -134,4 +134,5 @@
 .ytf-form-input::placeholder {
   color: rgba(0,0,0,0.4);
   opacity: 1;
+  font-size: 14px;
 }

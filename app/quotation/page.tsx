@@ -826,7 +826,7 @@ export default function QuotationPage() {
       <div className="container mx-auto px-4 py-4 md:pb-0 pb-24">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Left column: Form */}
-          <div className="w-full lg:w-1/2 lg:pt-0">
+          <div className="w-full lg:w-3/5 lg:pt-0">
             <Card className="bg-transparent shadow-none border-0">
               <CardContent className="p-0">
                 {/* Form content */}
@@ -880,7 +880,7 @@ export default function QuotationPage() {
                             onValueChange={handleBusinessSizeChange}
                             name="businessSize"
                           >
-                            <SelectTrigger id="businessSize" className="ytf-form-input flex-1 w-full bg-transparent border-none !border-b-0 outline-none placeholder:ytf-form-input" style={{ fontFamily: 'YTF Grand 123, monospace', fontSize: '12px', lineHeight: '1.4', height: '18px', padding: 0 }}>
+                            <SelectTrigger id="businessSize" className="ytf-form-input flex-1 w-full bg-transparent border-none !border-b-0 outline-none placeholder:ytf-form-input" style={{ fontFamily: 'YTF Grand 123, monospace', fontSize: '14px', lineHeight: '1.4', height: '18px', padding: 0 }}>
                               <SelectValue placeholder="Select Business Size" />
                             </SelectTrigger>
                             <SelectContent>
@@ -906,7 +906,7 @@ export default function QuotationPage() {
                             onValueChange={handleCountryChange}
                             name="billingAddress.country"
                           >
-                            <SelectTrigger id="billingAddress.country" className="ytf-form-input flex-1 w-full bg-transparent border-none !border-b-0 outline-none placeholder:ytf-form-input" style={{ fontFamily: 'YTF Grand 123, monospace', fontSize: '12px', lineHeight: '1.4', height: '18px', padding: 0 }}>
+                            <SelectTrigger id="billingAddress.country" className="ytf-form-input flex-1 w-full bg-transparent border-none !border-b-0 outline-none placeholder:ytf-form-input" style={{ fontFamily: 'YTF Grand 123, monospace', fontSize: '14px', lineHeight: '1.4', height: '18px', padding: 0 }}>
                               <SelectValue placeholder="Select Country" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1178,7 +1178,7 @@ export default function QuotationPage() {
           </div>
 
           {/* Right column: PDF Preview and Export */}
-          <div className="w-full lg:w-1/2">
+          <div className="w-full lg:w-2/5">
             <div className="lg:sticky lg:top-10 pb-16 md:pb-16 pb-[64px]">
               <div className="hidden md:block">
                 <Card className="p-0 rounded-none bg-transparent shadow-none border-0">

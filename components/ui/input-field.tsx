@@ -46,7 +46,7 @@ export const InputField: React.FC<InputFieldProps> = ({
         type={type}
         autoComplete={autoComplete}
         className="ytf-form-input flex-1 w-full bg-transparent border-none !border-b-0 outline-none placeholder:ytf-form-input"
-        style={{ fontFamily: 'YTF Grand 123, monospace', fontSize: '12px', lineHeight: '1.4', height: '18px', padding: 0 }}
+        style={{ fontFamily: 'YTF Grand 123, monospace', fontSize: '14px', lineHeight: '1.4', height: '18px', padding: 0 }}
       />
       {error && touched && (
         <div className="ytf-form-error mt-1">{error}</div>

@@ -15,9 +15,9 @@ export const PricingRow: React.FC<PricingRowProps> = ({
 }) => {
   return (
     <div className="flex justify-between items-baseline mb-4">
-      <span className={`ytf-form-label uppercase font-ytf-grand text-xs tracking-wide font-normal leading-none`} style={{ letterSpacing: '0.04em' }}>{label}</span>
+      <span className={`ytf-form-label uppercase font-ytf-grand text-sm tracking-wide font-normal leading-none`} style={{ letterSpacing: '0.04em' }}>{label}</span>
       <div className="flex items-baseline gap-2">
-        <span className={`text-body-secondary font-normal text-xs leading-none ${isTotal ? 'font-bold' : ''}`}>
+        <span className={`text-body-secondary font-normal text-sm leading-none ${isTotal ? 'font-bold' : ''}`}>
           {typeof value === 'number' ? `$${value.toFixed(2)}` : value}
         </span>
         {children}
