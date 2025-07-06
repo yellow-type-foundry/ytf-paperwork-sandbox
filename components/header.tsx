@@ -1,10 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
 
 export default function Header() {
-  const pathname = usePathname();
   return (
     <header>
       <div className="container mx-auto flex h-16 items-center justify-between">
@@ -14,15 +12,6 @@ export default function Header() {
             <img src="/YTF-LOGO.svg" alt="Yellow Type Foundry Logo" className="h-8 w-auto" />
           </Link>
         </div>
-        {/* Right: Nav Links */}
-        <nav className="flex gap-6 items-center">
-          <Link
-            href="/quotation"
-            className={`heading-mono transition-opacity duration-200 ease-in-out ${pathname === "/quotation" ? "opacity-100" : "opacity-40 hover:opacity-100"}`}
-          >
-            Quotation
-          </Link>
-        </nav>
       </div>
     </header>
   )
