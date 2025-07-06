@@ -830,6 +830,9 @@ export default function QuotationPage() {
     potentialSavings: number;
     items: FormItem[];
   }>>([]);
+  
+  // Add a key to force PDF preview re-render when AI processes new data
+  const [pdfPreviewKey, setPdfPreviewKey] = useState(0);
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -985,6 +988,10 @@ export default function QuotationPage() {
   const processAiInput = async (input: string) => {
     setIsAiProcessing(true);
     
+    // Clear previous AI results immediately
+    setAiSuggestions([]);
+    setAiBundleSuggestions([]);
+    
     try {
       // Try AI parsing first
       const aiResult = await parseWithAI(input);
@@ -1008,12 +1015,48 @@ export default function QuotationPage() {
           };
         });
 
-        // Update form data
-        setFormData(prev => ({
-          ...prev,
-          items: items.length > 0 ? items : prev.items,
-          businessSize: aiResult.businessSize
-        }));
+        // Completely reset form data with new AI results
+        const newFormData = {
+          ...formData,
+          items: items.length > 0 ? items : [],
+          businessSize: aiResult.businessSize,
+          // Recalculate totals based on new items
+          subtotal: items.reduce((sum, item) => sum + item.amount, 0),
+          discount: 0, // Will be recalculated below
+          total: 0 // Will be recalculated below
+        };
+
+        // Calculate discount and total
+        if (items.length > 0) {
+          const { amount: discountAmount } = calculateDiscount(items, aiResult.businessSize);
+          const total = newFormData.subtotal - discountAmount;
+          newFormData.discount = discountAmount;
+          newFormData.total = total;
+        }
+
+        // Force complete state update
+        setFormData(newFormData);
+        
+        // Force PDF preview re-render
+        setPdfPreviewKey(prev => prev + 1);
+
+        // Reset touched fields and errors for new items
+        const newTouchedItems = items.map(() => ({ ...defaultTouchedItem }));
+        const newItemErrors = items.map(() => ({ ...defaultErrorItem }));
+        
+        setTouchedFields({
+          clientName: false,
+          clientEmail: false,
+          businessSize: false,
+          items: newTouchedItems,
+        });
+        
+        setErrors({
+          clientName: "",
+          clientEmail: "",
+          businessSize: "",
+          items: newItemErrors,
+        });
 
         // Set suggestions
         setAiSuggestions(aiResult.suggestions);
@@ -1032,9 +1075,6 @@ export default function QuotationPage() {
           const bundleSuggestions = generateBundleSuggestions(items, aiResult.businessSize);
           setAiBundleSuggestions(bundleSuggestions);
         }
-        
-        // Update availableVariants
-        // Items are already properly formatted with variants
 
         // Log AI pricing information if available
         if (aiResult.pricing) {
@@ -1047,32 +1087,100 @@ export default function QuotationPage() {
         console.log('AI confidence too low, using rule-based parsing');
         const parsed = parseAiInput(input);
 
-        setFormData(prev => ({
-          ...prev,
+        // Completely reset form data with parsed results
+        const newFormData = {
+          ...formData,
           ...parsed.clientInfo,
-          items: parsed.items && parsed.items.length > 0 ? parsed.items : prev.items,
-          businessSize: parsed.businessSize || prev.businessSize
-        }));
+          items: parsed.items && parsed.items.length > 0 ? parsed.items : [],
+          businessSize: parsed.businessSize || formData.businessSize,
+          // Recalculate totals based on new items
+          subtotal: parsed.items ? parsed.items.reduce((sum, item) => sum + item.amount, 0) : 0,
+          discount: 0, // Will be recalculated below
+          total: 0 // Will be recalculated below
+        };
+
+        // Calculate discount and total
+        if (parsed.items && parsed.items.length > 0) {
+          const { amount: discountAmount } = calculateDiscount(parsed.items, parsed.businessSize);
+          const total = newFormData.subtotal - discountAmount;
+          newFormData.discount = discountAmount;
+          newFormData.total = total;
+        }
+
+        // Force complete state update
+        setFormData(newFormData);
+
+        // Reset touched fields and errors for new items
+        const newTouchedItems = (parsed.items || []).map(() => ({ ...defaultTouchedItem }));
+        const newItemErrors = (parsed.items || []).map(() => ({ ...defaultErrorItem }));
+        
+        setTouchedFields({
+          clientName: false,
+          clientEmail: false,
+          businessSize: false,
+          items: newTouchedItems,
+        });
+        
+        setErrors({
+          clientName: "",
+          clientEmail: "",
+          businessSize: "",
+          items: newItemErrors,
+        });
 
         setAiSuggestions(parsed.suggestions);
 
         if (parsed.items && parsed.items.length > 0) {
           const bundleSuggestions = generateBundleSuggestions(parsed.items, parsed.businessSize);
           setAiBundleSuggestions(bundleSuggestions);
-          
-          // Parsed items are already properly formatted
         }
       }
     } catch (error) {
       console.error('Error processing AI input:', error);
       // Fallback to rule-based parsing on error
       const parsed = parseAiInput(input);
-      setFormData(prev => ({
-        ...prev,
+      
+      // Completely reset form data with parsed results
+      const newFormData = {
+        ...formData,
         ...parsed.clientInfo,
-        items: parsed.items && parsed.items.length > 0 ? parsed.items : prev.items,
-        businessSize: parsed.businessSize || prev.businessSize
-      }));
+        items: parsed.items && parsed.items.length > 0 ? parsed.items : [],
+        businessSize: parsed.businessSize || formData.businessSize,
+        // Recalculate totals based on new items
+        subtotal: parsed.items ? parsed.items.reduce((sum, item) => sum + item.amount, 0) : 0,
+        discount: 0, // Will be recalculated below
+        total: 0 // Will be recalculated below
+      };
+
+      // Calculate discount and total
+      if (parsed.items && parsed.items.length > 0) {
+        const { amount: discountAmount } = calculateDiscount(parsed.items, parsed.businessSize);
+        const total = newFormData.subtotal - discountAmount;
+        newFormData.discount = discountAmount;
+        newFormData.total = total;
+      }
+
+      // Force complete state update
+      setFormData(newFormData);
+
+      // Reset touched fields and errors for new items
+      const newTouchedItems = (parsed.items || []).map(() => ({ ...defaultTouchedItem }));
+      const newItemErrors = (parsed.items || []).map(() => ({ ...defaultErrorItem }));
+      
+      setTouchedFields({
+        clientName: false,
+        clientEmail: false,
+        businessSize: false,
+        items: newTouchedItems,
+      });
+      
+      setErrors({
+        clientName: "",
+        clientEmail: "",
+        businessSize: "",
+        items: newItemErrors,
+      });
+
       setAiSuggestions([...parsed.suggestions, 'Note: Using rule-based parsing due to AI service error.']);
     } finally {
       setIsAiProcessing(false);
@@ -1910,7 +2018,7 @@ export default function QuotationPage() {
                 <Card className="p-0 rounded-none bg-transparent shadow-none border-0">
                   <CardContent className="p-0">
                     {isClient ? (
-                      <PDFPreview formData={formData} />
+                      <PDFPreview key={pdfPreviewKey} formData={formData} />
                     ) : (
                       <div className="w-full aspect-[1/1.414] bg-muted flex items-center justify-center">
                         <div className="text-center">
