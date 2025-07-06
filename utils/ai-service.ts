@@ -1,4 +1,6 @@
 import { HfInference } from '@huggingface/inference';
+import { extractVietnameseQuotationInfo } from './vietnamese-extract';
+import { parseBilingualRequest } from './bilingual-nlp-service';
 
 // Initialize Hugging Face client
 const hf = new HfInference(process.env.HUGGINGFACE_API_KEY);
@@ -276,4 +278,91 @@ export function fallbackToRules(input: string) {
   // This will use the existing parseAiInput function
   // We'll import and use it here
   return null; // Placeholder - will be implemented
+}
+
+// Bilingual AI parsing with Vietnamese Llama support
+export async function parseWithBilingualAI(input: string): Promise<AIResponse | null> {
+  try {
+    // First try bilingual parsing
+    const bilingualResult = await parseBilingualRequest(input);
+    if (bilingualResult && bilingualResult.confidence > 0.7) {
+      // Convert bilingual result to AIResponse format
+      const result: AIResponse = {
+        typefaces: bilingualResult.slots.typefaces.map(tf => ({
+          family: tf.family,
+          style: tf.style,
+          confidence: tf.confidence
+        })),
+        businessSize: bilingualResult.slots.businessSize.value,
+        licenseTypes: bilingualResult.slots.licenseTypes.map(lt => lt.value),
+        usage: bilingualResult.slots.usage.value,
+        suggestions: bilingualResult.suggestions,
+        confidence: bilingualResult.confidence,
+        bundleSuggestions: []
+      };
+
+      // Auto-add desktop license for commercial use
+      if (result.businessSize !== 'individual' && !result.licenseTypes.includes('desktop')) {
+        result.licenseTypes.unshift('desktop');
+      }
+
+      return result;
+    }
+
+    // If bilingual parsing fails or has low confidence, try Vietnamese Llama
+    if (input.match(/[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i)) {
+      try {
+        const vietnameseResult = await extractVietnameseQuotationInfo(input);
+        
+        // Convert Vietnamese result to AIResponse format
+        const result: AIResponse = {
+          typefaces: vietnameseResult.typefaces.map(tf => ({
+            family: tf,
+            style: 'Regular', // Default to Regular style
+            confidence: 0.8
+          })),
+          businessSize: mapEmployeeCountToBusinessSize(vietnameseResult.businessSize),
+          licenseTypes: vietnameseResult.licenseTypes,
+          usage: 'under-5k', // Default for commercial use
+          suggestions: [],
+          confidence: 0.7
+        };
+
+        // Auto-add desktop license for commercial use
+        if (result.businessSize !== 'individual' && !result.licenseTypes.includes('desktop')) {
+          result.licenseTypes.unshift('desktop');
+        }
+
+        return result;
+      } catch (error) {
+        console.log('Vietnamese Llama parsing failed:', error);
+      }
+    }
+
+    // Fallback to regular AI parsing
+    return await parseWithAI(input);
+    
+  } catch (error) {
+    console.error('Bilingual AI parsing failed:', error);
+    return await parseWithAI(input);
+  }
+}
+
+// Helper function to map employee count to business size
+function mapEmployeeCountToBusinessSize(employeeCount: string | number): string {
+  if (typeof employeeCount === 'string') {
+    const num = parseInt(employeeCount);
+    if (isNaN(num)) return 'individual';
+    employeeCount = num;
+  }
+  
+  if (typeof employeeCount === 'number') {
+    if (employeeCount < 20) return 'xs';
+    if (employeeCount < 50) return 's';
+    if (employeeCount < 150) return 'm';
+    if (employeeCount < 250) return 'l';
+    if (employeeCount < 500) return 'xl';
+  }
+  
+  return 'individual';
 } 

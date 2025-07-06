@@ -24,7 +24,7 @@ import {
   getUsageOptionsForLicenseType,
   calculateDiscount,
 } from "@/utils/typeface-data"
-import { parseWithAI } from "@/utils/ai-service"
+import { parseWithAI, parseWithBilingualAI } from "@/utils/ai-service"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { InputField } from "@/components/ui/input-field"
@@ -993,8 +993,8 @@ export default function QuotationPage() {
     setAiBundleSuggestions([]);
     
     try {
-      // Try AI parsing first
-      const aiResult = await parseWithAI(input);
+      // Try bilingual AI parsing first
+      const aiResult = await parseWithBilingualAI(input);
       
       if (aiResult && aiResult.confidence > 0.7) {
         // Convert AI result to form data
@@ -1090,7 +1090,11 @@ export default function QuotationPage() {
         // Completely reset form data with parsed results
         const newFormData = {
           ...formData,
-          ...parsed.clientInfo,
+          clientEmail: parsed.clientInfo.clientEmail || formData.clientEmail,
+          billingAddress: {
+            ...formData.billingAddress,
+            ...parsed.clientInfo.billingAddress
+          },
           items: parsed.items && parsed.items.length > 0 ? parsed.items : [],
           businessSize: parsed.businessSize || formData.businessSize,
           // Recalculate totals based on new items
@@ -1143,7 +1147,11 @@ export default function QuotationPage() {
       // Completely reset form data with parsed results
       const newFormData = {
         ...formData,
-        ...parsed.clientInfo,
+        clientEmail: parsed.clientInfo.clientEmail || formData.clientEmail,
+        billingAddress: {
+          ...formData.billingAddress,
+          ...parsed.clientInfo.billingAddress
+        },
         items: parsed.items && parsed.items.length > 0 ? parsed.items : [],
         businessSize: parsed.businessSize || formData.businessSize,
         // Recalculate totals based on new items
@@ -1445,7 +1453,25 @@ export default function QuotationPage() {
 
     // --- 3. License Types Parsing ---
     const licenseTypes = new Set<string>();
-    licenseTypes.add('desktop'); // Always include Desktop
+    
+    // Only include Desktop if explicitly mentioned or reasonably inferred
+    if (lowerInput.includes('desktop') || 
+        lowerInput.includes('install') || 
+        lowerInput.includes('design work') || 
+        lowerInput.includes('computer') ||
+        lowerInput.includes('software') ||
+        lowerInput.includes('application') ||
+        lowerInput.includes('program') ||
+        lowerInput.includes('design software') ||
+        lowerInput.includes('adobe') ||
+        lowerInput.includes('illustrator') ||
+        lowerInput.includes('photoshop') ||
+        lowerInput.includes('indesign') ||
+        lowerInput.includes('figma') ||
+        lowerInput.includes('sketch')) {
+      licenseTypes.add('desktop');
+    }
+    
     if (lowerInput.includes('website') || lowerInput.includes('web')) {
       licenseTypes.add('web');
     }
@@ -1467,6 +1493,11 @@ export default function QuotationPage() {
     }
     if (lowerInput.includes('book') || lowerInput.includes('editorial') || lowerInput.includes('publishing')) {
       licenseTypes.add('publishing');
+    }
+    
+    // If no license types detected, add a suggestion instead of auto-including Desktop
+    if (licenseTypes.size === 0) {
+      suggestions.push('Please specify how you plan to use the typeface (e.g., "web use", "desktop installation", "logo design", "app development")');
     }
 
     // --- 4. Usage Tiers Parsing ---
@@ -1870,13 +1901,9 @@ export default function QuotationPage() {
                       <div className="w-full mt-4 space-y-4">
                         {/* AI Input Interface */}
                         <div className="space-y-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                            <span className="font-grand text-[14px] text-gray-600">AI Assistant</span>
-                          </div>
-                          
-                                                     <textarea
-                             className="w-full border border-outlinePrimary rounded-md p-4 text-[14px] font-grand resize-none focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500"
+                          <textarea
+                             className="w-full border border-outlinePrimary rounded-md p-4 font-grand resize-none focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500"
+                             style={{ fontFamily: 'YTF Grand 123, monospace', fontWeight: 400, fontSize: 20, lineHeight: 1.4 }}
                              rows={4}
                              placeholder="Describe your typeface needs in natural language. For example:&#10;&#10;• 'I need YTF Gióng for a web project, 15 employees, commercial use'&#10;• 'Looking for a display font for my startup logo, around 10 people'&#10;• 'Need fonts for a book project, individual license'&#10;• 'Want to use YTF Grand 123 for mobile app, 50 employees'"
                              value={aiInput}
@@ -1893,9 +1920,7 @@ export default function QuotationPage() {
                            />
                           
                           <div className="flex items-center justify-between">
-                            <div className="text-muted-foreground text-[13px]">
-                              {isAiProcessing ? 'Processing your request...' : 'Press Enter or click Process to analyze'}
-                            </div>
+                            <div></div>
                             
                             <button
                               onClick={() => processAiInput(aiInput)}
