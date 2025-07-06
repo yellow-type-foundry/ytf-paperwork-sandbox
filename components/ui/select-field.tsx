@@ -15,6 +15,7 @@ interface SelectFieldProps {
   error?: string
   touched?: boolean
   children: React.ReactNode
+  disabled?: boolean
 }
 
 export const SelectField: React.FC<SelectFieldProps> = ({
@@ -28,6 +29,7 @@ export const SelectField: React.FC<SelectFieldProps> = ({
   error,
   touched,
   children,
+  disabled,
 }) => {
   // Split label and asterisk if present
   const isRequired = label.trim().endsWith("*");
@@ -46,7 +48,8 @@ export const SelectField: React.FC<SelectFieldProps> = ({
         onBlur={onBlur}
         autoComplete={autoComplete}
         className="ytf-form-input flex-1 w-full bg-transparent border-none !border-b-0 outline-none placeholder:ytf-form-input"
-        style={{ fontFamily: 'YTF Grand 123, monospace', fontSize: '12px', lineHeight: '1.2' }}
+        disabled={disabled}
+        style={disabled ? { opacity: 0.2 } : {}}
       >
         {children}
       </select>

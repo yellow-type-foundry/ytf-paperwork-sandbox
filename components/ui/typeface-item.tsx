@@ -87,8 +87,8 @@ export const TypefaceItem: React.FC<TypefaceItemProps> = ({
         </Button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div className="flex items-center border-b-[0.5px] border-black pb-[12px] w-full" style={{ gap: '12px' }}>
-          <label htmlFor={`item-${index}-family`} className="ytf-form-label uppercase flex-shrink-0 inline-flex items-center" style={{ minHeight: '21px' }}>
+        <div className="flex items-center border-b-[0.5px] border-black w-full h-9 py-2 gap-3">
+          <label htmlFor={`item-${index}-family`} className="ytf-form-label uppercase flex-shrink-0 inline-flex items-center min-h-[21px]">
             TYPEFACE <span className="text-destructive">*</span>
           </label>
           <Select
@@ -96,7 +96,7 @@ export const TypefaceItem: React.FC<TypefaceItemProps> = ({
             onValueChange={(val) => onSelectChange("typefaceFamily", val)}
             name={`item-${index}-family`}
           >
-            <SelectTrigger id={`item-${index}-family`} className="ytf-form-input flex-1 w-full bg-transparent border-none !border-b-0 outline-none placeholder:ytf-form-input" style={{ fontFamily: 'YTF Grand 123, monospace', fontSize: '12px', lineHeight: '1.4', height: '18px', padding: 0 }}>
+            <SelectTrigger id={`item-${index}-family`} className="ytf-form-input flex-1 w-full bg-transparent border-none !border-b-0 outline-none h-9 py-2 placeholder:ytf-form-input">
               <SelectValue placeholder="Select typeface family" />
             </SelectTrigger>
             <SelectContent>
@@ -108,8 +108,8 @@ export const TypefaceItem: React.FC<TypefaceItemProps> = ({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center border-b-[0.5px] border-black pb-[12px] w-full" style={{ gap: '12px' }}>
-          <label htmlFor={`item-${index}-variant`} className="ytf-form-label uppercase flex-shrink-0 inline-flex items-center" style={{ minHeight: '21px' }}>
+        <div className="flex items-center border-b-[0.5px] border-black w-full h-9 py-2 gap-3">
+          <label htmlFor={`item-${index}-variant`} className="ytf-form-label uppercase flex-shrink-0 inline-flex items-center min-h-[21px]">
             STYLE <span className="text-destructive">*</span>
           </label>
           <Select
@@ -117,7 +117,7 @@ export const TypefaceItem: React.FC<TypefaceItemProps> = ({
             onValueChange={(val) => onSelectChange("typefaceVariant", val)}
             name={`item-${index}-variant`}
           >
-            <SelectTrigger id={`item-${index}-variant`} className="ytf-form-input flex-1 w-full bg-transparent border-none !border-b-0 outline-none placeholder:ytf-form-input" style={{ fontFamily: 'YTF Grand 123, monospace', fontSize: '12px', lineHeight: '1.4', height: '18px', padding: 0 }}>
+            <SelectTrigger id={`item-${index}-variant`} className="ytf-form-input flex-1 w-full bg-transparent border-none !border-b-0 outline-none h-9 py-2 placeholder:ytf-form-input">
               <SelectValue placeholder="Select style" />
             </SelectTrigger>
             <SelectContent>
@@ -129,8 +129,8 @@ export const TypefaceItem: React.FC<TypefaceItemProps> = ({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center border-b-[0.5px] border-black pb-[12px] w-full" style={{ gap: '12px' }}>
-          <label htmlFor={`item-${index}-licenseType`} className="ytf-form-label uppercase flex-shrink-0 inline-flex items-center" style={{ minHeight: '21px' }}>
+        <div className="flex items-center border-b-[0.5px] border-black w-full h-9 py-2 gap-3">
+          <label htmlFor={`item-${index}-licenseType`} className="ytf-form-label uppercase flex-shrink-0 inline-flex items-center min-h-[21px]">
             LICENSE TYPE <span className="text-destructive">*</span>
           </label>
           <Select
@@ -138,7 +138,12 @@ export const TypefaceItem: React.FC<TypefaceItemProps> = ({
             onValueChange={handleLicenseTypeChange}
             name={`item-${index}-licenseType`}
           >
-            <SelectTrigger id={`item-${index}-licenseType`} className="ytf-form-input flex-1 w-full bg-transparent border-none !border-b-0 outline-none placeholder:ytf-form-input" style={{ fontFamily: 'YTF Grand 123, monospace', fontSize: '12px', lineHeight: '1.4', height: '18px', padding: 0 }}>
+            <SelectTrigger
+              id={`item-${index}-licenseType`}
+              className="ytf-form-input flex-1 w-full bg-transparent border-none !border-b-0 outline-none h-9 py-2 placeholder:ytf-form-input"
+              disabled={!isCurrentLicenseTypeValid}
+              style={!isCurrentLicenseTypeValid ? { opacity: 0.2 } : {}}
+            >
               <SelectValue placeholder={isCurrentLicenseTypeValid ? undefined : "Select license type"} />
             </SelectTrigger>
             <SelectContent>
@@ -150,8 +155,8 @@ export const TypefaceItem: React.FC<TypefaceItemProps> = ({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center border-b-[0.5px] border-black pb-[12px] w-full" style={{ gap: '12px' }}>
-          <label htmlFor={`item-${index}-usage`} className="ytf-form-label uppercase flex-shrink-0 inline-flex items-center" style={{ minHeight: '21px' }}>
+        <div className="flex items-center border-b-[0.5px] border-black w-full h-9 py-2 gap-3">
+          <label htmlFor={`item-${index}-usage`} className="ytf-form-label uppercase flex-shrink-0 inline-flex items-center min-h-[21px]">
             USAGE <span className="text-destructive">*</span>
           </label>
           <Select
@@ -160,7 +165,12 @@ export const TypefaceItem: React.FC<TypefaceItemProps> = ({
             name={`item-${index}-usage`}
             disabled={isUsageAutoFilled}
           >
-            <SelectTrigger id={`item-${index}-usage`} className="ytf-form-input flex-1 w-full bg-transparent border-none !border-b-0 outline-none placeholder:ytf-form-input" style={{ fontFamily: 'YTF Grand 123, monospace', fontSize: '12px', lineHeight: '1.4', height: '18px', padding: 0 }}>
+            <SelectTrigger
+              id={`item-${index}-usage`}
+              className="ytf-form-input flex-1 w-full bg-transparent border-none !border-b-0 outline-none h-9 py-2 placeholder:ytf-form-input"
+              disabled={isUsageAutoFilled}
+              style={isUsageAutoFilled ? { opacity: 0.2 } : {}}
+            >
               <SelectValue placeholder="Select usage" />
             </SelectTrigger>
             <SelectContent>
