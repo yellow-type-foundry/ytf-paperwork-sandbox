@@ -1486,7 +1486,7 @@ export default function QuotationPage() {
         if (lowerInput.includes(familyName)) {
           // Try to extract style from the phrase after the family name
           // Improved regex to be more flexible and capture the full style phrase
-          const styleRegex = new RegExp(`${familyName}\\s+([a-zA-Z\\s]+?)(?=\\s+(?:for|and|with|on|in|at|,|$))`, 'i');
+          const styleRegex = new RegExp(`${familyName}\\s+([a-zA-Z\\s]+?)(?=\\s+(?:for|and|with|on|in|at|,|\\.|$))`, 'i');
           const styleMatch = lowerInput.match(styleRegex);
           let mentionedStyles: string[] = [];
           
@@ -1495,7 +1495,8 @@ export default function QuotationPage() {
               familyName,
               input: lowerInput,
               styleMatch: styleMatch ? styleMatch[1] : 'no match',
-              availableVariants: typeface.variants
+              availableVariants: typeface.variants,
+              regex: styleRegex.toString()
             });
           }
           
@@ -1505,40 +1506,29 @@ export default function QuotationPage() {
             if (typeof window !== 'undefined') {
               console.log('AI Typeface Extraction: Extracted style phrase:', stylePhrase);
             }
-            // --- IMPROVED LOGIC: Prioritize exact matches, then longest substring matches ---
-            // Normalize style phrase and variants for comparison
+            // --- STRICT PRIORITY LOGIC ---
             const normalizedStylePhrase = stylePhrase.toLowerCase().replace(/\s+/g, ' ').trim();
-            
-            // First, try exact match (case-insensitive)
-            const exactMatch = typeface.variants.find(v => 
-              v.toLowerCase().replace(/\s+/g, ' ').trim() === normalizedStylePhrase
-            );
-            
+            // 1. Exact match
+            const exactMatch = typeface.variants.find(v => v.toLowerCase().replace(/\s+/g, ' ').trim() === normalizedStylePhrase);
             if (exactMatch) {
               mentionedStyles.push(exactMatch);
               if (typeof window !== 'undefined') {
                 console.log('AI Typeface Extraction: Exact match found:', exactMatch);
               }
             } else {
-              // Find all variants that are substrings of the style phrase, or vice versa
+              // 2. Longest substring match
               const matchingVariants = typeface.variants.filter(v => {
                 const normV = v.toLowerCase().replace(/\s+/g, ' ').trim();
-                return (
-                  normalizedStylePhrase.includes(normV) ||
-                  normV.includes(normalizedStylePhrase)
-                );
+                return normalizedStylePhrase.includes(normV) || normV.includes(normalizedStylePhrase);
               });
-              
-              // Pick the longest matching variant name (most specific)
-              let bestMatch = null;
               if (matchingVariants.length > 0) {
-                bestMatch = matchingVariants.reduce((a, b) => (b.length > a.length ? b : a));
+                const bestMatch = matchingVariants.reduce((a, b) => (b.length > a.length ? b : a));
                 mentionedStyles.push(bestMatch);
                 if (typeof window !== 'undefined') {
                   console.log('AI Typeface Extraction: Longest substring match found:', bestMatch);
                 }
-                            } else {
-                // Try splitting by space and matching each word (legacy fallback)
+              } else {
+                // 3. Word-based match
                 const words = stylePhrase.split(' ');
                 const matchedVariants = new Set<string>();
                 words.forEach(word => {
@@ -1552,10 +1542,10 @@ export default function QuotationPage() {
                     console.log('AI Typeface Extraction: Word-based match found:', bestWordMatch);
                   }
                 } else {
-                  // Fallback: add the whole phrase as a style for debugging
-                  mentionedStyles.push(stylePhrase);
+                  // 4. Fallback: use the first variant
+                  mentionedStyles.push(typeface.variants[0]);
                   if (typeof window !== 'undefined') {
-                    console.warn('AI Typeface Extraction: Unmatched style phrase:', stylePhrase);
+                    console.warn('AI Typeface Extraction: Fallback to first variant:', typeface.variants[0]);
                   }
                 }
               }
@@ -1645,15 +1635,6 @@ export default function QuotationPage() {
       if (typeof window !== 'undefined') {
         console.warn('AI Typeface Extraction: No typefaces detected for input:', input);
       }
-    }
-
-    // Ensure all items have unique IDs (fix for React key duplication)
-    const seenIds = new Set();
-    for (let i = 0; i < items.length; i++) {
-      if (seenIds.has(items[i].id)) {
-        items[i].id = crypto.randomUUID();
-      }
-      seenIds.add(items[i].id);
     }
 
     // --- 2. Business Size Parsing ---
