@@ -22,12 +22,6 @@ export default function Header() {
           >
             Quotation
           </Link>
-          <Link
-            href="/eula-editor"
-            className={`heading-mono transition-opacity duration-200 ease-in-out ${pathname === "/eula-editor" ? "opacity-100" : "opacity-40 hover:opacity-100"}`}
-          >
-            EULA Editor
-          </Link>
         </nav>
       </div>
     </header>

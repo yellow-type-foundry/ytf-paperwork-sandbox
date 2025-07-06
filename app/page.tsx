@@ -28,22 +28,6 @@ export default function PaperworkDashboard() {
             </Button>
           </CardFooter>
         </Card>
-
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader>
-            <CardTitle>EULA Editor</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Create comprehensive EULAs with customizable terms and conditions for your typeface licenses.
-            </p>
-          </CardContent>
-          <CardFooter>
-            <Button asChild className="w-full bg-yellow-500 hover:bg-yellow-600">
-              <Link href="/eula-editor">Edit EULA</Link>
-            </Button>
-          </CardFooter>
-        </Card>
       </div>
     </div>
   )
