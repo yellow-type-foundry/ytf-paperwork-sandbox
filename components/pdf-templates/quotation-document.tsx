@@ -478,11 +478,11 @@ const QuotationTableHeader = () => (
       marginBottom: 0,
       backgroundColor: COLORS.tableHeader,
     }}>
-      <Text style={[textStyles.pdf.footnote, { width: '8%', textTransform: 'uppercase', paddingHorizontal: 4, paddingVertical: 8 }]}>No</Text>
-      <Text style={[textStyles.pdf.footnote, { width: '30%', textTransform: 'uppercase', paddingHorizontal: 4, paddingVertical: 8 }]}>Typeface</Text>
-      <Text style={[textStyles.pdf.footnote, { width: '25%', textTransform: 'uppercase', paddingHorizontal: 4, paddingVertical: 8 }]}>License Type</Text>
-      <Text style={[textStyles.pdf.footnote, { width: '20%', textTransform: 'uppercase', paddingHorizontal: 4, paddingVertical: 8 }]}>Usage</Text>
-      <Text style={[textStyles.pdf.footnote, { width: '17%', textAlign: 'right', textTransform: 'uppercase', paddingHorizontal: 4, paddingVertical: 8 }]}>Amount</Text>
+      <Text style={[textStyles.pdf.footnote, { width: '8%', textTransform: 'uppercase', paddingHorizontal: 8, paddingVertical: 8 }]}>No</Text>
+      <Text style={[textStyles.pdf.footnote, { width: '30%', textTransform: 'uppercase', paddingHorizontal: 8, paddingVertical: 8 }]}>Typeface</Text>
+      <Text style={[textStyles.pdf.footnote, { width: '25%', textTransform: 'uppercase', paddingHorizontal: 8, paddingVertical: 8 }]}>License Type</Text>
+      <Text style={[textStyles.pdf.footnote, { width: '20%', textTransform: 'uppercase', paddingHorizontal: 8, paddingVertical: 8 }]}>Usage</Text>
+      <Text style={[textStyles.pdf.footnote, { width: '17%', textAlign: 'right', textTransform: 'uppercase', paddingHorizontal: 8, paddingVertical: 8 }]}>Amount</Text>
     </View>
   </View>
 )
@@ -502,11 +502,11 @@ const usageLabelMap = Object.fromEntries([
 const QuotationRowContainer = ({ index, item }: { index: number, item: QuotationItem }) => {
   return (
     <View style={styles.tableRow}>
-      <Text style={[textStyles.pdf.footnote, { width: '8%', paddingHorizontal: 4, paddingVertical: 8 }]}>{`0${index + 1}.`}</Text>
-      <Text style={[textStyles.pdf.bodyPrimary, { width: '30%', paddingHorizontal: 4, paddingVertical: 8 }]}>{item.typeface}</Text>
-      <Text style={[textStyles.pdf.bodyPrimary, { width: '25%', paddingHorizontal: 4, paddingVertical: 8 }]}>{licenseTypeLabelMap[item.licenseType] || item.licenseType}</Text>
-      <Text style={[textStyles.pdf.bodyPrimary, { width: '20%', paddingHorizontal: 4, paddingVertical: 8 }]}>{usageLabelMap[item.usage] || item.usage}</Text>
-      <Text style={[textStyles.pdf.bodyPrimary, { width: '17%', textAlign: 'right', paddingHorizontal: 4, paddingVertical: 8 }]}>${item.amount.toFixed(2)}</Text>
+      <Text style={[textStyles.pdf.footnote, { width: '8%', paddingHorizontal: 8, paddingVertical: 8 }]}>{`0${index + 1}.`}</Text>
+      <Text style={[textStyles.pdf.bodyPrimary, { width: '30%', paddingHorizontal: 8, paddingVertical: 8 }]}>{item.typeface}</Text>
+      <Text style={[textStyles.pdf.bodyPrimary, { width: '25%', paddingHorizontal: 8, paddingVertical: 8 }]}>{licenseTypeLabelMap[item.licenseType] || item.licenseType}</Text>
+      <Text style={[textStyles.pdf.bodyPrimary, { width: '20%', paddingHorizontal: 8, paddingVertical: 8 }]}>{usageLabelMap[item.usage] || item.usage}</Text>
+      <Text style={[textStyles.pdf.bodyPrimary, { width: '17%', textAlign: 'right', paddingHorizontal: 8, paddingVertical: 8 }]}>${item.amount.toFixed(2)}</Text>
     </View>
   );
 }
